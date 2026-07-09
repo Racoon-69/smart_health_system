@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="description" content="Secure educational health support and care navigation platform">
+  <title>{% block title %}Smart Health{% endblock %} · SmartHealth</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-xl navbar-dark fixed-top glass-nav">
+  <div class="container">
+    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}"><span class="brand-mark"><i class="bi bi-heart-pulse-fill"></i></span> SmartHealth</a>
+    <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav" aria-label="Open navigation"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav ms-auto align-items-xl-center gap-xl-1">
+        {% if current_user.is_authenticated %}<li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a></li>{% endif %}
+        <li class="nav-item dropdown"><a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Health tools</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="{{ url_for('upload_report') }}"><i class="bi bi-file-earmark-medical me-2"></i>Hospital report</a></li><li><a class="dropdown-item" href="{{ url_for('symptom_checker') }}"><i class="bi bi-clipboard2-pulse me-2"></i>Symptom guidance</a></li><li><a class="dropdown-item" href="{{ url_for('photo_analysis') }}"><i class="bi bi-camera me-2"></i>Health photo</a></li></ul></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('hospitals') }}">Hospitals</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('doctors') }}">Doctors</a></li>
+        {% if current_user.is_authenticated and current_user.role.value == 'patient' %}<li class="nav-item"><a class="nav-link" href="{{ url_for('appointments') }}">Appointments</a></li><li class="nav-item"><a class="nav-link" href="{{ url_for('chat') }}">Messages</a></li>{% endif %}
+        {% if current_user.is_authenticated %}
+          <li class="nav-item dropdown ms-xl-2"><a class="btn btn-light btn-sm rounded-pill px-3 text-primary dropdown-toggle" data-bs-toggle="dropdown" href="#"><i class="bi bi-person-circle me-1"></i>{{ current_user.name|truncate(18) }}</a><ul class="dropdown-menu dropdown-menu-end">{% if current_user.role.value == 'patient' %}<li><a class="dropdown-item" href="{{ url_for('profile') }}">Profile & security</a></li>{% else %}<li><a class="dropdown-item" href="{{ url_for('doctor_admin_dashboard') }}">Staff workspace</a></li>{% endif %}<li><hr class="dropdown-divider"></li><li><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="dropdown-item text-danger" type="submit">Sign out</button></form></li></ul></li>
+        {% else %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Sign in</a></li><li class="nav-item ms-xl-2"><a class="btn btn-light btn-sm rounded-pill px-3 text-primary" href="{{ url_for('register') }}">Create account</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>
+<main><div class="container flash-stack">{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}{% endwith %}</div>{% block content %}{% endblock %}</main>
+<footer class="footer mt-5"><div class="container py-5"><div class="row g-4"><div class="col-lg-5"><h5><i class="bi bi-heart-pulse-fill me-2"></i>Smart Health Management System</h5><p class="text-white-50 mb-0">Secure educational decision support and care navigation. It does not provide a diagnosis or replace licensed care.</p></div><div class="col-6 col-lg-3"><h6>Platform</h6><a href="{{ url_for('symptom_checker') }}">Symptom guidance</a><a href="{{ url_for('slot_availability') }}">Slot availability</a><a href="{{ url_for('doctor_admin') }}">Staff access</a></div><div class="col-6 col-lg-4"><h6>Emergency</h6><p class="text-white-50 small">For chest pain, severe bleeding, breathing difficulty, unconsciousness, or stroke signs, call local emergency services immediately.</p></div></div><hr class="border-secondary"><p class="small text-white-50 mb-0">© {{ current_year }} SmartHealth · Educational support, privacy by design</p></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="{{ url_for('static', filename='js/main.js') }}"></script>{% block scripts %}{% endblock %}
+</body></html>
