@@ -15,7 +15,7 @@ HELP_RE = re.compile(r"\b(help|support|info|what can you do|features|guide)\b", 
 
 
 def _call_gemini_api(prompt: str, api_key: str) -> str | None:
-    """Call Google Gemini / Antigravity REST API directly for real-time generative AI responses."""
+    """Call Generative LLM REST API directly for real-time generative responses."""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         payload = {
@@ -24,7 +24,7 @@ def _call_gemini_api(prompt: str, api_key: str) -> str | None:
                     "parts": [
                         {
                             "text": (
-                                "You are Antigravity AI Assistant for Smart Health System. "
+                                "You are SmartHealth AI Assistant for Smart Health System. "
                                 "Answer the user's question directly, accurately, and naturally. "
                                 "You can answer ANY question (general knowledge, science, tech, daily life, study, or health). "
                                 "Only include medical advice/guidance if the user specifically asks about health or symptoms. "
@@ -45,7 +45,7 @@ def _call_gemini_api(prompt: str, api_key: str) -> str | None:
                 if parts:
                     return parts[0].get("text", "").strip()
     except Exception as exc:
-        print(f"[Antigravity AI Engine] API Call Exception: {exc}")
+        print(f"[SmartHealth AI Engine] API Call Exception: {exc}")
     return None
 
 
@@ -57,10 +57,10 @@ def bot_reply(message: str) -> str:
 
     # 1. Try real-time LLM API if key is set in environment (Answers ANY question)
     api_key = (
-        os.getenv("ANTIGRAVITY_API_KEY")
-        or os.getenv("GEMINI_API_KEY")
+        os.getenv("GEMINI_API_KEY")
         or os.getenv("LLM_API_KEY")
         or os.getenv("OPENAI_API_KEY")
+        or os.getenv("ANTIGRAVITY_API_KEY")
     )
     if api_key:
         llm_response = _call_gemini_api(text, api_key)
@@ -92,7 +92,7 @@ def bot_reply(message: str) -> str:
     profile = analysis["profile"]
     matched_keywords = analysis["keywords"]
     confidence = analysis["confidence"]
-    model_name = "Antigravity AI Engine (" + analysis.get("model_used", "Random Forest Classifier") + ")"
+    model_name = "SmartHealth AI Engine (" + analysis.get("model_used", "Random Forest Classifier") + ")"
 
     # Emergency check
     if analysis["emergency"]:
@@ -108,9 +108,9 @@ def bot_reply(message: str) -> str:
     # 5. Non-medical / General Question handling when no health symptoms match
     if not matched_keywords:
         return (
-            f"✨ Antigravity AI Engine\n\n"
+            f"✨ SmartHealth AI Engine\n\n"
             f"Regarding your query: \"{text}\"\n\n"
-            "I am your Antigravity AI Assistant. I can answer general knowledge questions, technology topics, daily advice, as well as health queries!\n\n"
+            "I am your SmartHealth AI Assistant. I can answer general knowledge questions, technology topics, daily advice, as well as health queries!\n\n"
             "If you have a specific health symptom or lab report you'd like analyzed, please mention your symptoms (e.g., fever, headache, high blood pressure) or upload a report file."
         )
 
