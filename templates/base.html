@@ -17,13 +17,14 @@
     <div class="collapse navbar-collapse" id="nav">
       <ul class="navbar-nav ms-auto align-items-xl-center gap-xl-1">
         {% if current_user.is_authenticated %}<li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a></li>{% endif %}
-        <li class="nav-item dropdown"><a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Health tools</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="{{ url_for('upload_report') }}"><i class="bi bi-file-earmark-medical me-2"></i>Hospital report</a></li><li><a class="dropdown-item" href="{{ url_for('symptom_checker') }}"><i class="bi bi-clipboard2-pulse me-2"></i>Symptom guidance</a></li><li><a class="dropdown-item" href="{{ url_for('photo_analysis') }}"><i class="bi bi-camera me-2"></i>Health photo</a></li></ul></li>
+        <li class="nav-item dropdown"><a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Health tools</a><ul class="dropdown-menu"><li><a class="dropdown-item" href="{{ url_for('upload_report') }}"><i class="bi bi-file-earmark-medical me-2"></i>Hospital report</a></li>{% if current_user.is_authenticated and current_user.role.value == 'patient' %}<li><a class="dropdown-item" href="{{ url_for('my_reports') }}"><i class="bi bi-folder-check me-2 text-primary"></i>Saved reports archive</a></li>{% endif %}<li><a class="dropdown-item" href="{{ url_for('symptom_checker') }}"><i class="bi bi-clipboard2-pulse me-2"></i>Symptom guidance</a></li><li><a class="dropdown-item" href="{{ url_for('photo_analysis') }}"><i class="bi bi-camera me-2"></i>Health photo</a></li></ul></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('hospitals') }}">Hospitals</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('doctors') }}">Doctors</a></li>
         {% if current_user.is_authenticated and current_user.role.value in ['doctor', 'admin'] %}
           <li class="nav-item"><a class="nav-link text-warning fw-semibold" href="{{ url_for('doctor_admin_dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>Doctor Panel</a></li>
         {% endif %}
         {% if current_user.is_authenticated and current_user.role.value == 'patient' %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('my_reports') }}"><i class="bi bi-folder-check me-1 text-primary"></i>My Reports</a></li>
           <li class="nav-item"><a class="nav-link" href="{{ url_for('appointments') }}">Appointments</a></li>
           <li class="nav-item"><a class="nav-link" href="{{ url_for('chat') }}">Doctor messages</a></li>
           <li class="nav-item"><a class="nav-link" href="{{ url_for('ai_chat') }}">AI assistant</a></li>
@@ -36,6 +37,7 @@
             </a>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm">
               {% if current_user.role.value == 'patient' %}
+                <li><a class="dropdown-item" href="{{ url_for('my_reports') }}"><i class="bi bi-folder-check me-2 text-primary"></i>My Saved Reports</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="bi bi-person-gear me-2"></i>Profile & security</a></li>
               {% else %}
                 <li><a class="dropdown-item" href="{{ url_for('doctor_admin_dashboard') }}"><i class="bi bi-hospital me-2"></i>Doctor Workspace</a></li>

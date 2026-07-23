@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block title %}My Medical Reports Vault{% endblock %}
+{% block content %}
+<section class="page-hero compact py-4 mb-4">
+  <div class="container d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <span class="eyebrow dark"><i class="bi bi-folder-check me-1"></i> PRIVATE HEALTH VAULT</span>
+      <h1 class="fw-bold text-white mb-1">My Medical Reports Archive</h1>
+      <p class="text-white-50 mb-0">All uploaded hospital reports are automatically saved here for future reference and clinical review.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('upload_report') }}" class="btn btn-light btn-lg rounded-pill px-4 fw-bold text-primary shadow-sm">
+        <i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload New Report
+      </a>
+    </div>
+  </div>
+</section>
+
+<div class="container page-body pb-5">
+  <!-- Search and Filter Bar -->
+  <form method="get" action="{{ url_for('my_reports') }}" class="mb-4">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-9 col-8">
+        <div class="input-group input-group-lg shadow-sm rounded-3">
+          <span class="input-group-text bg-white border-2 border-end-0 text-muted"><i class="bi bi-search"></i></span>
+          <input type="text" name="q" value="{{ search }}" class="form-control border-2 border-start-0" placeholder="Search saved reports by condition, keyword, or filename...">
+        </div>
+      </div>
+      <div class="col-md-3 col-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+          Filter Reports
+        </button>
+        {% if search %}
+          <a href="{{ url_for('my_reports') }}" class="btn btn-outline-secondary btn-lg" title="Reset Search">
+            <i class="bi bi-x-circle"></i>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
+  <!-- Reports Grid -->
+  <div class="row g-4">
+    {% for r in reports %}
+      <div class="col-md-6 col-lg-4">
+        <div class="panel report-card shadow-sm border-0 rounded-4 p-4 bg-white h-100 d-flex flex-column justify-content-between">
+          <div>
+            <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+              <span class="badge bg-primary-subtle text-primary fw-bold px-3 py-1 rounded-pill">
+                <i class="bi bi-file-earmark-medical me-1"></i>Saved Report
+              </span>
+              <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else '' }}</small>
+            </div>
+
+            <h4 class="fw-bold mb-2 text-dark">{{ r.detected_condition }}</h4>
+            <div class="mb-3">
+              <span class="small text-muted d-block">Original File: <strong>{{ r.filename }}</strong></span>
+              <span class="badge bg-info-subtle text-dark border mt-1">Confidence: {{ r.confidence }}</span>
+            </div>
+
+            {% if r.matched_keywords %}
+              <div class="mb-3">
+                <small class="text-muted fw-bold d-block mb-1">Detected Keywords:</small>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for kw in r.matched_keywords %}
+                    <span class="badge bg-light text-secondary border small">{{ kw }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+
+            <div class="p-3 bg-light rounded-3 mb-3 border">
+              <small class="text-muted fw-bold d-block mb-1">Extracted Diagnostic Snippet:</small>
+              <p class="small text-muted mb-0 text-truncate-3">{{ r.extracted_text|truncate(150) }}</p>
+            </div>
+          </div>
+
+          <div>
+            <a href="{{ url_for('report_result', id=r.public_id) }}" class="btn btn-outline-primary w-100 fw-bold rounded-3">
+              <i class="bi bi-eye-fill me-1"></i>View Full Analysis & Guidance
+            </a>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="col-12">
+        <div class="empty-state panel text-center py-5 bg-white rounded-4 border-0 shadow-sm">
+          <i class="bi bi-folder-x display-3 text-muted mb-3 d-block"></i>
+          <h4 class="fw-bold">No Saved Medical Reports</h4>
+          <p class="text-muted">{% if search %}No reports matched your search query "{{ search }}".{% else %}You have not uploaded any medical reports yet. Upload a hospital report PDF or text to store it securely in your Health Vault.{% endif %}</p>
+          <a href="{{ url_for('upload_report') }}" class="btn btn-primary btn-lg fw-bold rounded-pill px-4 mt-2">
+            <i class="bi bi-cloud-arrow-up-fill me-2"></i>Upload Hospital Report
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

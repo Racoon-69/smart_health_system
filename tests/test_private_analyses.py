@@ -45,3 +45,13 @@ def test_fake_image_rejected(patient_client):
         follow_redirects=True,
     )
     assert b"not a supported image" in response.data
+
+
+def test_my_reports_vault_retrieval(patient_client):
+    patient_client.post(
+        "/upload-report", data={"report_text": "Hemoglobin RBC Iron Anemia fatigue pale"}, follow_redirects=True
+    )
+    res = patient_client.get("/my-reports")
+    assert res.status_code == 200
+    assert b"Anemia" in res.data
+    assert b"My Medical Reports Archive" in res.data

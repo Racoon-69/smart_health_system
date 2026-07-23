@@ -281,11 +281,29 @@ def register_public_routes(app):
                 audit("report.analyze", "report_analysis", analysis.public_id)
                 db.session.commit()
                 _alert_critical_report(current_user, analysis, result)
+                flash("Report successfully analyzed and saved to your private Health Vault database for future reference!", "success")
                 return redirect(url_for("report_result", id=analysis.public_id))
             except ValueError as exc:
                 db.session.rollback()
                 flash(str(exc), "danger")
         return render_template("report_upload.html")
+
+    @app.route("/my-reports")
+    @login_required
+    def my_reports():
+        if current_user.role != UserRole.PATIENT:
+            return redirect(url_for("doctor_admin_dashboard"))
+        
+        search = request.args.get("q", "").strip()
+        query = select(ReportAnalysis).where(ReportAnalysis.patient_id == current_user.id).order_by(ReportAnalysis.created_at.desc())
+        if search:
+            query = query.where(
+                func.lower(ReportAnalysis.detected_condition).contains(search.lower()) |
+                func.lower(ReportAnalysis.original_filename).contains(search.lower()) |
+                func.lower(ReportAnalysis.extracted_text).contains(search.lower())
+            )
+        reports = db.session.scalars(query).all()
+        return render_template("my_reports.html", reports=reports, search=search)
 
     @app.route("/report-result/<id>")
     @login_required
