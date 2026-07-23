@@ -216,7 +216,10 @@ def register_auth_routes(app):
                 db.session.commit()
                 flash("Profile updated.", "success")
                 return redirect(url_for("profile"))
-        return render_template("profile.html", form=form)
+        doctor = db.session.scalar(
+            select(DoctorProfile).where(DoctorProfile.is_active.is_(True)).order_by(DoctorProfile.rating.desc())
+        )
+        return render_template("profile.html", form=form, doctor=doctor)
 
     @app.post("/account/change-password")
     @login_required

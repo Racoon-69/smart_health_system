@@ -4,12 +4,92 @@
 <section class="page-hero compact py-4 mb-4">
   <div class="container">
     <span class="eyebrow dark"><i class="bi bi-person-badge"></i> Account & Safety</span>
-    <h1 class="fw-bold">Profile & Emergency Alert Settings</h1>
-    <p class="lead text-white-50">Keep your health profile and emergency SMS contacts accurate for instant alert dispatch.</p>
+    <h1 class="fw-bold">Profile & Emergency Contacts</h1>
+    <p class="lead text-white-50">Manage your patient details, family emergency contacts, and assigned doctor emergency numbers.</p>
   </div>
 </section>
 
 <div class="container page-body pb-5">
+  <!-- Emergency Contact Quick Action Bar -->
+  <div class="panel border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <h4 class="fw-bold text-danger mb-1"><i class="bi bi-shield-exclamation me-2"></i>Emergency Contacts (Doctor & Family)</h4>
+        <p class="text-muted small mb-0">In an emergency, click below to instantly call, send an SMS, or dispatch an automated alert.</p>
+      </div>
+      <form method="post" action="{{ url_for('emergency_alert') }}" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="source" value="profile">
+        <input type="hidden" name="category" value="profile emergency button">
+        <button type="submit" class="btn btn-danger btn-lg rounded-pill px-4 fw-bold shadow-sm">
+          <i class="bi bi-bell-fill me-2"></i>Dispatch Emergency SMS Alert
+        </button>
+      </form>
+    </div>
+
+    <div class="row g-3 mt-3">
+      <!-- 1. Assigned Doctor Emergency Contact Card -->
+      <div class="col-md-6">
+        <div class="p-3 bg-primary-subtle rounded-4 border border-primary-subtle h-100">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="badge bg-primary text-white fw-bold"><i class="bi bi-person-badge me-1"></i>Emergency Doctor Contact</span>
+            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active Doctor</span>
+          </div>
+          <h5 class="fw-bold text-dark mb-1">
+            {% if doctor %}Dr. {{ doctor.display_name }}{% else %}Assigned Emergency Specialist{% endif %}
+          </h5>
+          <p class="small text-muted mb-2">
+            {% if doctor %}{{ doctor.department.name }} · {{ doctor.hospital.name }}{% else %}Hospital Emergency Department{% endif %}
+          </p>
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-telephone-fill text-primary"></i>
+            <strong class="text-dark">{{ doctor.sms_phone if (doctor and doctor.sms_phone) else '+977 9800000002' }}</strong>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="tel:{{ (doctor.sms_phone if (doctor and doctor.sms_phone) else '+9779800000002') | replace(' ', '') }}" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">
+              <i class="bi bi-telephone-outbound me-1"></i>Call Doctor
+            </a>
+            <a href="sms:{{ (doctor.sms_phone if (doctor and doctor.sms_phone) else '+9779800000002') | replace(' ', '') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold">
+              <i class="bi bi-chat-text me-1"></i>SMS Doctor
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Family Member Emergency Contact Card -->
+      <div class="col-md-6">
+        <div class="p-3 bg-danger-subtle rounded-4 border border-danger-subtle h-100">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="badge bg-danger text-white fw-bold"><i class="bi bi-heart-fill me-1"></i>Family Emergency Contact</span>
+            <span class="badge bg-white text-danger border border-danger-subtle fw-semibold">Receives SMS Alert</span>
+          </div>
+          <h5 class="fw-bold text-dark mb-1">
+            {{ form.family_contact_name.data or 'Family Contact Not Set' }}
+          </h5>
+          <p class="small text-muted mb-2">
+            Relationship: <strong>{{ form.family_contact_relationship.data or 'Not specified' }}</strong>
+          </p>
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-telephone-fill text-danger"></i>
+            <strong class="text-dark">{{ form.family_contact_phone.data or 'No phone number saved' }}</strong>
+          </div>
+          <div class="d-flex gap-2">
+            {% if form.family_contact_phone.data %}
+              <a href="tel:{{ form.family_contact_phone.data | replace(' ', '') }}" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold">
+                <i class="bi bi-telephone-outbound me-1"></i>Call Family
+              </a>
+              <a href="sms:{{ form.family_contact_phone.data | replace(' ', '') }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
+                <i class="bi bi-chat-text me-1"></i>SMS Family
+              </a>
+            {% else %}
+              <span class="text-muted small"><i class="bi bi-info-circle me-1"></i>Fill in the form below to enable direct Call and SMS for your family member.</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-4">
     <div class="col-lg-8">
       <form method="post" class="panel form-panel shadow-sm border-0 rounded-4 p-4 bg-white">
@@ -46,8 +126,8 @@
 
         <hr class="my-4">
 
-        <h4 class="fw-bold mb-2 text-danger"><i class="bi bi-bell-fill me-2"></i>Emergency & Family SMS Alert Contact</h4>
-        <p class="text-muted small mb-3">When you press the Emergency Alert button or a critical alert triggers, an instant SMS alert will be sent to both your <strong>Doctor</strong> and this <strong>Family Member</strong>.</p>
+        <h4 class="fw-bold mb-2 text-danger"><i class="bi bi-heart-pulse-fill me-2"></i>Configure Family Emergency Contact</h4>
+        <p class="text-muted small mb-3">Enter your family member's contact details so they receive instant SMS alerts and direct Call/SMS links in emergency situations.</p>
         
         <div class="row g-3 mb-4 p-3 bg-danger-subtle rounded-3 border border-danger-subtle">
           <div class="col-md-6">
@@ -57,8 +137,8 @@
           </div>
           <div class="col-md-6">
             {{ form.family_contact_phone.label(class='form-label fw-bold text-dark') }}
-            {{ form.family_contact_phone(class='form-control border-2', placeholder='e.g. +977 9800000000') }}
-            <small class="text-muted d-block mt-1">SMS alert will be dispatched to this phone number.</small>
+            {{ form.family_contact_phone(class='form-control border-2', placeholder='e.g. +977 9800000001') }}
+            <small class="text-muted d-block mt-1">Direct Call & SMS alert recipient number.</small>
             {% for error in form.family_contact_phone.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
           </div>
           <div class="col-md-6">
@@ -128,11 +208,11 @@
 
       <div class="panel border-0 shadow-sm rounded-4 p-4 bg-white">
         <h5 class="fw-bold text-danger mb-2"><i class="bi bi-broadcast me-2"></i>Emergency Alert System</h5>
-        <p class="small text-muted">When an alert is sent:</p>
+        <p class="small text-muted">When an emergency alert is triggered:</p>
         <ul class="small text-muted ps-3 mb-0">
           <li class="mb-2">A direct SMS is delivered to your assigned <strong>Doctor's phone number</strong>.</li>
           <li class="mb-2">A direct SMS is delivered to your <strong>Family Member's phone number</strong>.</li>
-          <li>Details are logged safely in the audit log for emergency response tracking.</li>
+          <li>Direct <strong>Call</strong> and <strong>SMS</strong> links allow instant communication with both contacts.</li>
         </ul>
       </div>
     </div>
