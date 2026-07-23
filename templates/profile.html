@@ -1,3 +1,141 @@
-{% extends 'base.html' %}{% block title %}Profile & Security{% endblock %}{% block content %}
-<section class="page-hero compact"><div class="container"><span class="eyebrow dark">ACCOUNT</span><h1>Profile and security</h1><p>Keep care-navigation details accurate. Only authorized users can access this profile.</p></div></section><div class="container page-body"><div class="row g-4"><div class="col-lg-8"><form method="post" class="panel form-panel">{{ form.hidden_tag() }}<h4>Patient profile</h4><div class="row g-3">{% for field,width in [(form.full_name,12),(form.date_of_birth,6),(form.gender,6),(form.phone,6),(form.city,6),(form.emergency_contact,12),(form.medical_conditions,12),(form.allergies,12),(form.current_medications,12)] %}<div class="col-md-{{ width }}">{{ field.label(class='form-label') }}{{ field(class='form-control', rows=3) }}{% for error in field.errors %}<small class="text-danger">{{ error }}</small>{% endfor %}</div>{% endfor %}</div>{{ form.submit(class='btn btn-primary mt-4') }}</form></div><div class="col-lg-4"><form method="post" action="{{ url_for('change_password') }}" class="panel form-panel"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><h4>Change password</h4><p class="small text-muted">Use a unique passphrase of at least 8 characters.</p><label class="form-label">Current password</label><input type="password" name="current_password" class="form-control" required autocomplete="current-password"><label class="form-label mt-3">New password</label><input type="password" name="new_password" class="form-control" minlength="8" maxlength="128" required autocomplete="new-password"><label class="form-label mt-3">Confirm new password</label><input type="password" name="confirm_password" class="form-control" required autocomplete="new-password"><button class="btn btn-outline-primary w-100 mt-4">Update password</button></form><div class="disclaimer-card mt-3"><i class="bi bi-shield-check"></i><p class="mb-0 small">Authenticated pages prevent browser caching and every sensitive record checks ownership on the server.</p></div></div></div></div>
+{% extends 'base.html' %}
+{% block title %}Patient Profile & Emergency Contacts{% endblock %}
+{% block content %}
+<section class="page-hero compact py-4 mb-4">
+  <div class="container">
+    <span class="eyebrow dark"><i class="bi bi-person-badge"></i> Account & Safety</span>
+    <h1 class="fw-bold">Profile & Emergency Alert Settings</h1>
+    <p class="lead text-white-50">Keep your health profile and emergency SMS contacts accurate for instant alert dispatch.</p>
+  </div>
+</section>
+
+<div class="container page-body pb-5">
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <form method="post" class="panel form-panel shadow-sm border-0 rounded-4 p-4 bg-white">
+        {{ form.hidden_tag() }}
+        
+        <h4 class="fw-bold mb-3 text-primary"><i class="bi bi-person-circle me-2"></i>Personal Details</h4>
+        <div class="row g-3 mb-4">
+          <div class="col-md-12">
+            {{ form.full_name.label(class='form-label fw-bold') }}
+            {{ form.full_name(class='form-control border-2') }}
+            {% for error in form.full_name.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.date_of_birth.label(class='form-label fw-semibold') }}
+            {{ form.date_of_birth(class='form-control border-2') }}
+            {% for error in form.date_of_birth.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.gender.label(class='form-label fw-semibold') }}
+            {{ form.gender(class='form-control border-2') }}
+            {% for error in form.gender.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.phone.label(class='form-label fw-semibold') }}
+            {{ form.phone(class='form-control border-2', placeholder='+977 98xxxxxxxx') }}
+            {% for error in form.phone.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.city.label(class='form-label fw-semibold') }}
+            {{ form.city(class='form-control border-2') }}
+            {% for error in form.city.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h4 class="fw-bold mb-2 text-danger"><i class="bi bi-bell-fill me-2"></i>Emergency & Family SMS Alert Contact</h4>
+        <p class="text-muted small mb-3">When you press the Emergency Alert button or a critical alert triggers, an instant SMS alert will be sent to both your <strong>Doctor</strong> and this <strong>Family Member</strong>.</p>
+        
+        <div class="row g-3 mb-4 p-3 bg-danger-subtle rounded-3 border border-danger-subtle">
+          <div class="col-md-6">
+            {{ form.family_contact_name.label(class='form-label fw-bold text-dark') }}
+            {{ form.family_contact_name(class='form-control border-2', placeholder='e.g. Ram Bahadur Sharma') }}
+            {% for error in form.family_contact_name.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.family_contact_phone.label(class='form-label fw-bold text-dark') }}
+            {{ form.family_contact_phone(class='form-control border-2', placeholder='e.g. +977 9800000000') }}
+            <small class="text-muted d-block mt-1">SMS alert will be dispatched to this phone number.</small>
+            {% for error in form.family_contact_phone.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.family_contact_relationship.label(class='form-label fw-semibold text-dark') }}
+            {{ form.family_contact_relationship(class='form-control border-2', placeholder='e.g. Spouse / Father / Brother') }}
+            {% for error in form.family_contact_relationship.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-md-6">
+            {{ form.emergency_contact.label(class='form-label fw-semibold text-dark') }}
+            {{ form.emergency_contact(class='form-control border-2', placeholder='General emergency notes or address') }}
+            {% for error in form.emergency_contact.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h4 class="fw-bold mb-3 text-secondary"><i class="bi bi-file-medical me-2"></i>Medical History</h4>
+        <div class="row g-3">
+          <div class="col-12">
+            {{ form.medical_conditions.label(class='form-label fw-semibold') }}
+            {{ form.medical_conditions(class='form-control border-2', rows=2, placeholder='e.g. Asthma, Diabetes, Hypertension') }}
+            {% for error in form.medical_conditions.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-12">
+            {{ form.allergies.label(class='form-label fw-semibold') }}
+            {{ form.allergies(class='form-control border-2', rows=2, placeholder='e.g. Penicillin, Dust, Pollen') }}
+            {% for error in form.allergies.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+          <div class="col-12">
+            {{ form.current_medications.label(class='form-label fw-semibold') }}
+            {{ form.current_medications(class='form-control border-2', rows=2, placeholder='e.g. Paracetamol 500mg, Metformin') }}
+            {% for error in form.current_medications.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary btn-lg rounded-pill px-4 fw-bold">
+            <i class="bi bi-save me-2"></i>Save Profile & Emergency Contacts
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="col-lg-4">
+      <form method="post" action="{{ url_for('change_password') }}" class="panel form-panel shadow-sm border-0 rounded-4 p-4 bg-white mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h4 class="fw-bold mb-3 text-dark"><i class="bi bi-shield-lock me-2"></i>Change Password</h4>
+        <p class="small text-muted mb-3">Use a unique passphrase of at least 8 characters.</p>
+        
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Current Password</label>
+          <input type="password" name="current_password" class="form-control border-2" required autocomplete="current-password">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">New Password</label>
+          <input type="password" name="new_password" class="form-control border-2" minlength="8" maxlength="128" required autocomplete="new-password">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Confirm New Password</label>
+          <input type="password" name="confirm_password" class="form-control border-2" required autocomplete="new-password">
+        </div>
+        
+        <button class="btn btn-outline-primary w-100 rounded-pill fw-bold mt-2">
+          <i class="bi bi-key me-1"></i>Update Password
+        </button>
+      </form>
+
+      <div class="panel border-0 shadow-sm rounded-4 p-4 bg-white">
+        <h5 class="fw-bold text-danger mb-2"><i class="bi bi-broadcast me-2"></i>Emergency Alert System</h5>
+        <p class="small text-muted">When an alert is sent:</p>
+        <ul class="small text-muted ps-3 mb-0">
+          <li class="mb-2">A direct SMS is delivered to your assigned <strong>Doctor's phone number</strong>.</li>
+          <li class="mb-2">A direct SMS is delivered to your <strong>Family Member's phone number</strong>.</li>
+          <li>Details are logged safely in the audit log for emergency response tracking.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

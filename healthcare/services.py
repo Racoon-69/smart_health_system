@@ -50,8 +50,12 @@ def send_emergency_sms(*, phone: str, recipient_name: str, patient_name: str, ca
         "Please contact them and local emergency services."
     )
     if not current_app.config.get("SMS_ENABLED"):
+        if current_app.config.get("ENV_NAME") == "development":
+            print(f"📱 [EMERGENCY SMS SENT TO {recipient_name} ({normalized_phone})]: {message}")
+            return {"status": "sent", "provider_message_id": f"dev-simulated-{normalized_phone[-6:]}", "message": message}
         return {"status": "failed", "error": "SMS delivery is not enabled.", "message": message}
     if current_app.config.get("SMS_PROVIDER") == "mock":
+        print(f"📱 [MOCK SMS SENT TO {recipient_name} ({normalized_phone})]: {message}")
         return {"status": "sent", "provider_message_id": f"mock-{normalized_phone[-6:]}", "message": message}
     if current_app.config.get("SMS_PROVIDER") != "twilio":
         return {"status": "failed", "error": "Unsupported SMS provider.", "message": message}
@@ -62,8 +66,8 @@ def send_emergency_sms(*, phone: str, recipient_name: str, patient_name: str, ca
         return {"status": "failed", "error": "Twilio SMS credentials and SMS_FROM are required.", "message": message}
     try:
         result = Client(account_sid, auth_token).messages.create(body=message, from_=sender, to=normalized_phone)
-    except Exception:
-        return {"status": "failed", "error": "The SMS provider rejected the delivery request.", "message": message}
+    except Exception as exc:
+        return {"status": "failed", "error": f"Twilio SMS provider error: {exc}", "message": message}
     return {"status": "sent", "provider_message_id": result.sid, "message": message}
 
 
