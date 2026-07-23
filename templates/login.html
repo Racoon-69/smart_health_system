@@ -1,3 +1,100 @@
-{% extends 'base.html' %}{% block title %}Secure sign in{% endblock %}{% block content %}
-<section class="admin-login"><div class="container"><div class="row justify-content-center"><div class="col-md-7 col-lg-5"><form method="post" class="panel login-card">{{ form.hidden_tag() }}<span class="login-icon"><i class="bi bi-shield-lock"></i></span><h2>Secure account access</h2><p>Patients, doctors, and administrators use named accounts with role-scoped access.</p>{% for error in form.email.errors + form.password.errors %}<div class="alert alert-danger py-2">{{ error }}</div>{% endfor %}<label class="form-label">Email address</label>{{ form.email(class='form-control form-control-lg', autocomplete='email', placeholder='you@example.com') }}<label class="form-label mt-3">Password</label>{{ form.password(class='form-control form-control-lg', autocomplete='current-password') }}<div class="form-check text-start mt-3">{{ form.remember(class='form-check-input') }} {{ form.remember.label(class='form-check-label') }}</div>{{ form.submit(class='btn btn-primary btn-lg w-100 mt-4') }}<p class="small mt-4 mb-0">New patient? <a href="{{ url_for('register') }}">Create a private account</a></p><div class="demo-credential"><small>Development patient</small><code>patient@example.com</code></div><div class="demo-credential mt-2"><small>Development admin</small><code>admin@smarthealth.com</code></div></form></div></div></div></section>
+{% extends 'base.html' %}{% block title %}Secure Sign In{% endblock %}{% block content %}
+<section class="admin-login"><div class="container"><div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel login-card">
+  <div class="role-selector mb-4">
+    <div class="btn-group w-100" role="group">
+      <button type="button" class="btn btn-outline-primary active" id="tabPatient" onclick="switchLoginRole('patient')"><i class="bi bi-person me-1"></i> Patient Sign In</button>
+      <button type="button" class="btn btn-outline-primary" id="tabDoctor" onclick="switchLoginRole('doctor')"><i class="bi bi-person-badge me-1"></i> Doctor / Staff Portal</button>
+    </div>
+  </div>
+
+  <span class="login-icon" id="loginIcon"><i class="bi bi-shield-lock"></i></span>
+  <h2 id="loginTitle">Secure patient access</h2>
+  <p id="loginSubtitle">Patients and healthcare staff access role-scoped portals securely.</p>
+
+  <form method="post">
+    {{ form.hidden_tag() }}
+    {% for error in form.email.errors + form.password.errors %}<div class="alert alert-danger py-2">{{ error }}</div>{% endfor %}
+    
+    <label class="form-label" id="emailLabel">Email address</label>
+    {{ form.email(class='form-control form-control-lg', autocomplete='email', id='emailInput', placeholder='you@example.com') }}
+    
+    <label class="form-label mt-3">Password</label>
+    {{ form.password(class='form-control form-control-lg', autocomplete='current-password', id='passwordInput') }}
+    
+    <div class="form-check text-start mt-3">
+      {{ form.remember(class='form-check-input') }} {{ form.remember.label(class='form-check-label') }}
+    </div>
+    
+    {{ form.submit(class='btn btn-primary btn-lg w-100 mt-4', id='loginSubmit') }}
+    
+    <p class="small mt-4 mb-0 text-center" id="registerPrompt">New patient? <a href="{{ url_for('register') }}">Create a private account</a></p>
+  </form>
+
+  <hr class="my-4">
+  
+  <div class="demo-section">
+    <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-lightning-charge me-1"></i> Quick Fill Development Credentials:</span>
+    <div class="row g-2">
+      <div class="col-6">
+        <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('patient@example.com', 'DemoPatient!2026', 'patient')">
+          <small class="d-block fw-bold text-primary"><i class="bi bi-person-fill me-1"></i> Patient Demo</small>
+          <code class="small text-muted">patient@example.com</code>
+        </button>
+      </div>
+      <div class="col-6">
+        <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('asha@smarthealth.com', 'DemoPatient!2026', 'doctor')">
+          <small class="d-block fw-bold text-success"><i class="bi bi-person-badge-fill me-1"></i> Doctor Demo</small>
+          <code class="small text-muted">asha@smarthealth.com</code>
+        </button>
+      </div>
+    </div>
+  </div>
+</div></div></div></div></section>
+
+{% block scripts %}
+<script>
+function switchLoginRole(role) {
+  const tabPatient = document.getElementById('tabPatient');
+  const tabDoctor = document.getElementById('tabDoctor');
+  const title = document.getElementById('loginTitle');
+  const sub = document.getElementById('loginSubtitle');
+  const icon = document.getElementById('loginIcon');
+  const emailInput = document.getElementById('emailInput');
+
+  if (role === 'doctor') {
+    tabPatient.classList.remove('active');
+    tabDoctor.classList.add('active');
+    title.innerText = 'Doctor & Staff Portal';
+    sub.innerText = 'Access clinical records, appointments, and patient message queue.';
+    icon.innerHTML = '<i class="bi bi-hospital text-success"></i>';
+    if (!emailInput.value || emailInput.value === 'patient@example.com') {
+      emailInput.placeholder = 'doctor@smarthealth.com';
+    }
+  } else {
+    tabDoctor.classList.remove('active');
+    tabPatient.classList.add('active');
+    title.innerText = 'Secure Patient Access';
+    sub.innerText = 'Access your personal health records, symptom checker, and appointments.';
+    icon.innerHTML = '<i class="bi bi-shield-lock text-primary"></i>';
+    if (!emailInput.value || emailInput.value === 'asha@smarthealth.com') {
+      emailInput.placeholder = 'you@example.com';
+    }
+  }
+}
+
+function fillCredential(email, pass, role) {
+  switchLoginRole(role);
+  document.getElementById('emailInput').value = email;
+  document.getElementById('passwordInput').value = pass;
+}
+
+// Auto select tab if URL has ?role=doctor
+document.addEventListener('DOMContentLoaded', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('role') === 'doctor' || urlParams.get('next')?.includes('doctor')) {
+    switchLoginRole('doctor');
+  }
+});
+</script>
+{% endblock %}
 {% endblock %}
