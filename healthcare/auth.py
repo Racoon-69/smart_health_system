@@ -135,6 +135,9 @@ def register_auth_routes(app):
                 login_user(user, remember=form.remember.data, fresh=True)
                 session.permanent = True
                 destination = request.args.get("next")
+                if user.role in {UserRole.DOCTOR, UserRole.ADMIN}:
+                    flash(f"Welcome back, {user.name}! Accessing Doctor Workspace.", "success")
+                    return redirect(url_for("doctor_admin_dashboard"))
                 return redirect(destination if _safe_next(destination) else url_for("dashboard"))
             if user:
                 if not locked:

@@ -7,19 +7,11 @@
       <form method="post" class="panel form-panel">
         {{ form.hidden_tag() }}
         
-        <div class="mb-4 text-center">
-          <label class="form-label fw-bold d-block mb-2">Select Account Role</label>
-          <div class="btn-group w-100" role="group">
-            <button type="button" class="btn btn-outline-primary active" id="btnRolePatient" onclick="setRole('patient')">
-              <i class="bi bi-person me-1"></i> Patient Account
-            </button>
-            <button type="button" class="btn btn-outline-primary" id="btnRoleDoctor" onclick="setRole('doctor')">
-              <i class="bi bi-person-badge me-1"></i> Doctor / Practitioner
-            </button>
-          </div>
-          {{ form.account_type(id='accountTypeSelect', class='d-none') }}
+        <div class="mb-4 bg-light p-3 rounded-3 border">
+          <label class="form-label fw-bold d-block text-dark"><i class="bi bi-person-badge-fill me-1 text-primary"></i> Select Account Type</label>
+          {{ form.account_type(id='accountTypeSelect', class='form-select form-select-lg border-2 border-primary fw-semibold', onchange='setRole(this.value)') }}
           <small class="text-muted d-block mt-2" id="roleDescription">
-            Patients get private symptom checker, appointments, and report analysis.
+            <i class="bi bi-info-circle text-primary me-1"></i> Patients get private symptom checker, appointments, and AI report analysis.
           </small>
         </div>
 
@@ -64,22 +56,22 @@
 <script>
 function setRole(role) {
   const select = document.getElementById('accountTypeSelect');
-  const btnPatient = document.getElementById('btnRolePatient');
-  const btnDoctor = document.getElementById('btnRoleDoctor');
   const desc = document.getElementById('roleDescription');
   const submitBtn = document.getElementById('registerSubmit');
 
-  select.value = role;
+  if (select) select.value = role;
   if (role === 'doctor') {
-    btnPatient.classList.remove('active');
-    btnDoctor.classList.add('active');
-    desc.innerHTML = '<i class="bi bi-info-circle text-success me-1"></i> Doctors get full access to the Care Operations panel, patient appointment lists, and clinical messaging queue.';
-    submitBtn.innerText = 'Create Doctor Account';
+    if (desc) desc.innerHTML = '<i class="bi bi-info-circle text-success me-1"></i> Doctors get full access to the Care Operations panel, patient appointment lists, and clinical messaging queue.';
+    if (submitBtn) {
+      submitBtn.innerText = 'Create Doctor Account';
+      submitBtn.className = 'btn btn-success btn-lg w-100 fw-bold';
+    }
   } else {
-    btnDoctor.classList.remove('active');
-    btnPatient.classList.add('active');
-    desc.innerHTML = '<i class="bi bi-info-circle text-primary me-1"></i> Patients get private symptom checker, appointments, and AI report analysis.';
-    submitBtn.innerText = 'Create Patient Account';
+    if (desc) desc.innerHTML = '<i class="bi bi-info-circle text-primary me-1"></i> Patients get private symptom checker, appointments, and AI report analysis.';
+    if (submitBtn) {
+      submitBtn.innerText = 'Create Patient Account';
+      submitBtn.className = 'btn btn-primary btn-lg w-100 fw-bold';
+    }
   }
 }
 
