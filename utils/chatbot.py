@@ -58,9 +58,14 @@ def bot_reply(message: str) -> str:
         return "Please describe your health query or symptoms so I can assist you."
 
     # 1. Try real-time LLM API if key is set in environment
-    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY")
-    if gemini_key:
-        llm_response = _call_gemini_api(text, gemini_key)
+    api_key = (
+        os.getenv("ANTIGRAVITY_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("LLM_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+    )
+    if api_key:
+        llm_response = _call_gemini_api(text, api_key)
         if llm_response:
             return llm_response
 
@@ -88,7 +93,7 @@ def bot_reply(message: str) -> str:
     profile = analysis["profile"]
     matched_keywords = analysis["keywords"]
     confidence = analysis["confidence"]
-    model_name = analysis.get("model_used", "Random Forest AI Engine")
+    model_name = "Antigravity AI Engine (" + analysis.get("model_used", "Random Forest Classifier") + ")"
 
     # Emergency check
     if analysis["emergency"]:
@@ -108,7 +113,7 @@ def bot_reply(message: str) -> str:
     warnings = "\n".join([f"  • {item}" for item in profile["warnings"]])
 
     response = (
-        f"🤖 Smart Health AI Analysis ({model_name} · Confidence: {confidence})\n\n"
+        f"✨ {model_name} · Confidence: {confidence}\n\n"
         f"Based on your query regarding '{matched_str}', the symptoms align closely with {profile['name']}.\n\n"
         f"📋 Overview:\n{profile['description']}\n\n"
         f"💊 Recommended Care & Next Steps:\n{care_steps}\n\n"
