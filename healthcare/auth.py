@@ -35,8 +35,15 @@ def register_auth_routes(app):
         if not current_app.config.get("ALLOW_SELF_REGISTRATION"):
             abort(404)
         if current_user.is_authenticated:
+            if current_user.role in {UserRole.DOCTOR, UserRole.ADMIN}:
+                return redirect(url_for("doctor_admin_dashboard"))
             return redirect(url_for("dashboard"))
+        
+        target_role = request.args.get("role", "patient")
         form = RegistrationForm()
+        if request.method == "GET" and target_role in {"patient", "doctor"}:
+            form.account_type.data = target_role
+
         if form.validate_on_submit():
             email = form.email.data.strip().lower()
             if db.session.scalar(select(User).where(func.lower(User.email) == email)):
@@ -87,13 +94,17 @@ def register_auth_routes(app):
                     return redirect(url_for("doctor_admin_dashboard"))
                 flash("Your private patient account is ready.", "success")
                 return redirect(url_for("profile"))
-        return render_template("register.html", form=form)
+        return render_template("register.html", form=form, target_role=target_role)
 
     @app.route("/login", methods=["GET", "POST"])
     @limiter.limit("10 per minute")
     def login():
         if current_user.is_authenticated:
+            if current_user.role in {UserRole.DOCTOR, UserRole.ADMIN}:
+                return redirect(url_for("doctor_admin_dashboard"))
             return redirect(url_for("dashboard"))
+        
+        target_role = request.args.get("role", "patient")
         form = LoginForm()
         if form.validate_on_submit():
             email = form.email.data.strip().lower()
@@ -157,7 +168,7 @@ def register_auth_routes(app):
             )
             db.session.commit()
             flash("Sign-in failed. Check your credentials or wait if the account is temporarily locked.", "danger")
-        return render_template("login.html", form=form)
+        return render_template("login.html", form=form, target_role=target_role)
 
     @app.post("/logout")
     @login_required

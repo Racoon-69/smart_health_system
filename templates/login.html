@@ -1,109 +1,151 @@
-{% extends 'base.html' %}{% block title %}Secure Sign In{% endblock %}{% block content %}
-<section class="admin-login"><div class="container"><div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel login-card">
-  <div class="role-selector mb-4">
-    <div class="btn-group w-100" role="group">
-      <button type="button" class="btn btn-outline-primary active" id="tabPatient" onclick="switchLoginRole('patient')"><i class="bi bi-person me-1"></i> Patient Sign In</button>
-      <button type="button" class="btn btn-outline-primary" id="tabDoctor" onclick="switchLoginRole('doctor')"><i class="bi bi-person-badge me-1"></i> Doctor / Staff Portal</button>
+{% extends 'base.html' %}
+{% block title %}{% if target_role == 'doctor' %}Doctor Portal Sign In{% else %}Patient Sign In{% endif %}{% endblock %}
+{% block content %}
+<section class="admin-login py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-7 col-lg-5">
+        <div class="panel login-card shadow-lg border-0 rounded-4 p-4 p-md-5">
+          
+          {% if target_role == 'doctor' %}
+            <!-- DOCTOR & STAFF PORTAL SIGN IN ONLY -->
+            <div class="text-center mb-4">
+              <span class="d-inline-flex align-items-center justify-content-center bg-success-subtle text-success rounded-circle mb-3" style="width: 60px; height: 60px;">
+                <i class="bi bi-hospital fs-2"></i>
+              </span>
+              <span class="badge bg-success-subtle text-success text-uppercase fw-bold px-3 py-1 rounded-pill d-block mx-auto mb-2" style="width: fit-content;">DOCTOR & STAFF PORTAL</span>
+              <h2 class="fw-bold mb-1">Doctor Sign In</h2>
+              <p class="text-muted small mb-0">Sign in to access clinical appointments, patient chats, and care operations.</p>
+            </div>
+
+            <form method="post" action="{{ url_for('login', role='doctor') }}">
+              {{ form.hidden_tag() }}
+              {% for error in form.email.errors + form.password.errors %}
+                <div class="alert alert-danger py-2 small mb-3">{{ error }}</div>
+              {% endfor %}
+              
+              <div class="mb-3">
+                <label class="form-label fw-bold">Doctor Email Address</label>
+                {{ form.email(class='form-control form-control-lg border-2', autocomplete='email', id='emailInput', placeholder='doctor@smarthealth.com') }}
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label fw-bold">Password</label>
+                {{ form.password(class='form-control form-control-lg border-2', autocomplete='current-password', id='passwordInput') }}
+              </div>
+              
+              <div class="form-check text-start mb-4">
+                {{ form.remember(class='form-check-input') }}
+                {{ form.remember.label(class='form-check-label small text-muted') }}
+              </div>
+              
+              <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Sign In to Doctor Workspace
+              </button>
+              
+              <p class="small mt-4 mb-0 text-center text-muted">
+                New Practitioner? <a href="{{ url_for('register', role='doctor') }}" class="fw-bold text-success text-decoration-none">Register New Doctor Account</a>
+              </p>
+            </form>
+
+            <hr class="my-4">
+            
+            <!-- Quick Fill Doctor Demo Credentials -->
+            <div class="demo-section">
+              <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-lightning-charge-fill me-1 text-success"></i> Doctor Demo Accounts:</span>
+              <div class="row g-2">
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-success btn-sm w-100 text-start p-2 border" onclick="fillCredential('asha@smarthealth.com', 'DemoPatient!2026')">
+                    <small class="d-block fw-bold"><i class="bi bi-person-badge me-1"></i> Dr. Asha</small>
+                    <code class="small text-muted" style="font-size: 0.72rem;">asha@smarthealth.com</code>
+                  </button>
+                </div>
+                <div class="col-6">
+                  <button type="button" class="btn btn-outline-danger btn-sm w-100 text-start p-2 border" onclick="fillCredential('admin@smarthealth.com', 'ChangeMe!Admin2026')">
+                    <small class="d-block fw-bold"><i class="bi bi-shield-lock me-1"></i> Admin</small>
+                    <code class="small text-muted" style="font-size: 0.72rem;">admin@smarthealth.com</code>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-center mt-4 pt-2 border-top">
+              <a href="{{ url_for('login', role='patient') }}" class="small text-decoration-none text-muted">
+                <i class="bi bi-arrow-left me-1"></i>Switch to Patient Sign In
+              </a>
+            </div>
+
+          {% else %}
+            <!-- PATIENT SIGN IN ONLY -->
+            <div class="text-center mb-4">
+              <span class="d-inline-flex align-items-center justify-content-center bg-primary-subtle text-primary rounded-circle mb-3" style="width: 60px; height: 60px;">
+                <i class="bi bi-person-heart fs-2"></i>
+              </span>
+              <span class="badge bg-primary-subtle text-primary text-uppercase fw-bold px-3 py-1 rounded-pill d-block mx-auto mb-2" style="width: fit-content;">PATIENT PORTAL</span>
+              <h2 class="fw-bold mb-1">Patient Sign In</h2>
+              <p class="text-muted small mb-0">Sign in to access your health records, symptom checker, and appointments.</p>
+            </div>
+
+            <form method="post" action="{{ url_for('login') }}">
+              {{ form.hidden_tag() }}
+              {% for error in form.email.errors + form.password.errors %}
+                <div class="alert alert-danger py-2 small mb-3">{{ error }}</div>
+              {% endfor %}
+              
+              <div class="mb-3">
+                <label class="form-label fw-bold">Patient Email Address</label>
+                {{ form.email(class='form-control form-control-lg border-2', autocomplete='email', id='emailInput', placeholder='you@example.com') }}
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label fw-bold">Password</label>
+                {{ form.password(class='form-control form-control-lg border-2', autocomplete='current-password', id='passwordInput') }}
+              </div>
+              
+              <div class="form-check text-start mb-4">
+                {{ form.remember(class='form-check-input') }}
+                {{ form.remember.label(class='form-check-label small text-muted') }}
+              </div>
+              
+              <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Sign In to Patient Portal
+              </button>
+              
+              <p class="small mt-4 mb-0 text-center text-muted">
+                New Patient? <a href="{{ url_for('register') }}" class="fw-bold text-primary text-decoration-none">Create Patient Account</a>
+              </p>
+            </form>
+
+            <hr class="my-4">
+            
+            <!-- Quick Fill Patient Demo Credentials -->
+            <div class="demo-section">
+              <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-lightning-charge-fill me-1 text-primary"></i> Patient Demo Account:</span>
+              <button type="button" class="btn btn-outline-primary btn-sm w-100 text-start p-2 border" onclick="fillCredential('patient@example.com', 'DemoPatient!2026')">
+                <small class="d-block fw-bold"><i class="bi bi-person-fill me-1"></i> Demo Patient</small>
+                <code class="small text-muted" style="font-size: 0.75rem;">patient@example.com</code>
+              </button>
+            </div>
+
+            <div class="text-center mt-4 pt-2 border-top">
+              <a href="{{ url_for('login', role='doctor') }}" class="small text-decoration-none text-muted">
+                Switch to Doctor / Staff Portal <i class="bi bi-arrow-right ms-1"></i>
+              </a>
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
     </div>
   </div>
-
-  <span class="login-icon" id="loginIcon"><i class="bi bi-shield-lock"></i></span>
-  <h2 id="loginTitle">Secure patient access</h2>
-  <p id="loginSubtitle">Patients and healthcare staff access role-scoped portals securely.</p>
-
-  <form method="post">
-    {{ form.hidden_tag() }}
-    {% for error in form.email.errors + form.password.errors %}<div class="alert alert-danger py-2">{{ error }}</div>{% endfor %}
-    
-    <label class="form-label" id="emailLabel">Email address</label>
-    {{ form.email(class='form-control form-control-lg', autocomplete='email', id='emailInput', placeholder='you@example.com') }}
-    
-    <label class="form-label mt-3">Password</label>
-    {{ form.password(class='form-control form-control-lg', autocomplete='current-password', id='passwordInput') }}
-    
-    <div class="form-check text-start mt-3">
-      {{ form.remember(class='form-check-input') }} {{ form.remember.label(class='form-check-label') }}
-    </div>
-    
-    {{ form.submit(class='btn btn-primary btn-lg w-100 mt-4', id='loginSubmit') }}
-    
-    <p class="small mt-4 mb-0 text-center" id="registerPrompt">New patient? <a href="{{ url_for('register') }}">Create a private account</a></p>
-  </form>
-
-  <hr class="my-4">
-  
-  <div class="demo-section">
-    <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-lightning-charge me-1"></i> Quick Development Logins:</span>
-    <div class="row g-2">
-      <div class="col-4">
-        <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('patient@example.com', 'DemoPatient!2026', 'patient')">
-          <small class="d-block fw-bold text-primary"><i class="bi bi-person-fill me-1"></i> Patient</small>
-          <code class="small text-muted" style="font-size: 0.75rem;">patient@example.com</code>
-        </button>
-      </div>
-      <div class="col-4">
-        <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('asha@smarthealth.com', 'DemoPatient!2026', 'doctor')">
-          <small class="d-block fw-bold text-success"><i class="bi bi-person-badge-fill me-1"></i> Dr. Asha</small>
-          <code class="small text-muted" style="font-size: 0.75rem;">asha@smarthealth.com</code>
-        </button>
-      </div>
-      <div class="col-4">
-        <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('admin@smarthealth.com', 'ChangeMe!Admin2026', 'doctor')">
-          <small class="d-block fw-bold text-danger"><i class="bi bi-shield-lock-fill me-1"></i> Admin</small>
-          <code class="small text-muted" style="font-size: 0.75rem;">admin@smarthealth.com</code>
-        </button>
-      </div>
-    </div>
-  </div>
-</div></div></div></div></section>
+</section>
 
 {% block scripts %}
 <script>
-function switchLoginRole(role) {
-  const tabPatient = document.getElementById('tabPatient');
-  const tabDoctor = document.getElementById('tabDoctor');
-  const title = document.getElementById('loginTitle');
-  const sub = document.getElementById('loginSubtitle');
-  const icon = document.getElementById('loginIcon');
-  const emailInput = document.getElementById('emailInput');
-  const regPrompt = document.getElementById('registerPrompt');
-
-  if (role === 'doctor') {
-    tabPatient.classList.remove('active');
-    tabDoctor.classList.add('active');
-    title.innerText = 'Doctor & Staff Portal';
-    sub.innerText = 'Access clinical records, appointments, and patient message queue.';
-    icon.innerHTML = '<i class="bi bi-hospital text-success"></i>';
-    regPrompt.innerHTML = 'Need a doctor account? <a href="{{ url_for("register", role="doctor") }}" class="fw-bold text-success">Register as Doctor</a>';
-    if (!emailInput.value || emailInput.value === 'patient@example.com') {
-      emailInput.placeholder = 'doctor@smarthealth.com';
-    }
-  } else {
-    tabDoctor.classList.remove('active');
-    tabPatient.classList.add('active');
-    title.innerText = 'Secure Patient Access';
-    sub.innerText = 'Access your personal health records, symptom checker, and appointments.';
-    icon.innerHTML = '<i class="bi bi-shield-lock text-primary"></i>';
-    regPrompt.innerHTML = 'New patient? <a href="{{ url_for("register") }}">Create a private account</a>';
-    if (!emailInput.value || emailInput.value === 'asha@smarthealth.com' || emailInput.value === 'admin@smarthealth.com') {
-      emailInput.placeholder = 'you@example.com';
-    }
-  }
-}
-
-function fillCredential(email, pass, role) {
-  switchLoginRole(role);
+function fillCredential(email, pass) {
   document.getElementById('emailInput').value = email;
   document.getElementById('passwordInput').value = pass;
 }
-
-// Auto select tab if URL has ?role=doctor
-document.addEventListener('DOMContentLoaded', function() {
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('role') === 'doctor' || urlParams.get('next')?.includes('doctor')) {
-    switchLoginRole('doctor');
-  }
-});
 </script>
 {% endblock %}
 {% endblock %}

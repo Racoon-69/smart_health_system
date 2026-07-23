@@ -1,86 +1,86 @@
-{% extends 'base.html' %}{% block title %}Create Account{% endblock %}{% block content %}
-<section class="page-hero compact"><div class="container"><span class="eyebrow dark">REGISTRATION</span><h1>Create your health workspace</h1><p>Register as a Patient or Doctor to access role-scoped medical tools and workspace features.</p></div></section>
+{% extends 'base.html' %}
+{% block title %}{% if target_role == 'doctor' %}Register Doctor Account{% else %}Create Patient Account{% endif %}{% endblock %}
+{% block content %}
+<section class="page-hero compact py-4 mb-4">
+  <div class="container text-center">
+    {% if target_role == 'doctor' %}
+      <span class="eyebrow text-success fw-bold"><i class="bi bi-hospital me-1"></i> DOCTOR REGISTRATION</span>
+      <h1 class="fw-bold text-white">Join as a Medical Practitioner</h1>
+      <p class="text-white-50">Create your clinician account to access patient appointments and care operations.</p>
+    {% else %}
+      <span class="eyebrow text-primary fw-bold"><i class="bi bi-person-heart me-1"></i> PATIENT REGISTRATION</span>
+      <h1 class="fw-bold text-white">Create Your Patient Account</h1>
+      <p class="text-white-50">Access symptom analysis, report insights, and book doctor appointments.</p>
+    {% endif %}
+  </div>
+</section>
 
-<div class="container page-body">
+<div class="container page-body pb-5">
   <div class="row justify-content-center">
-    <div class="col-lg-7">
-      <form method="post" class="panel form-panel">
-        {{ form.hidden_tag() }}
-        
-        <div class="mb-4 bg-light p-3 rounded-3 border">
-          <label class="form-label fw-bold d-block text-dark"><i class="bi bi-person-badge-fill me-1 text-primary"></i> Select Account Type</label>
-          {{ form.account_type(id='accountTypeSelect', class='form-select form-select-lg border-2 border-primary fw-semibold', onchange='setRole(this.value)') }}
-          <small class="text-muted d-block mt-2" id="roleDescription">
-            <i class="bi bi-info-circle text-primary me-1"></i> Patients get private symptom checker, appointments, and AI report analysis.
-          </small>
-        </div>
+    <div class="col-lg-6 col-md-8">
+      <div class="panel form-panel shadow-lg border-0 rounded-4 p-4 p-md-5 bg-white">
+        <form method="post" action="{% if target_role == 'doctor' %}{{ url_for('register', role='doctor') }}{% else %}{{ url_for('register') }}{% endif %}">
+          {{ form.hidden_tag() }}
+          <input type="hidden" name="account_type" value="{{ target_role }}">
+          
+          {% if target_role == 'doctor' %}
+            <div class="alert alert-success d-flex align-items-center mb-4 py-2">
+              <i class="bi bi-person-badge fs-4 me-3"></i>
+              <div>
+                <strong>Registering as Doctor / Staff</strong>
+                <div class="small text-muted">You will be auto-linked to the clinical workspace upon creation.</div>
+              </div>
+            </div>
+          {% endif %}
 
-        <div class="mb-3">
-          {{ form.full_name.label(class='form-label') }}
-          {{ form.full_name(class='form-control form-control-lg', placeholder='e.g. Dr. John Doe or Jane Smith') }}
-          {% for error in form.full_name.errors %}<small class="text-danger">{{ error }}</small>{% endfor %}
-        </div>
+          <div class="mb-3">
+            {{ form.full_name.label(class='form-label fw-bold') }}
+            {{ form.full_name(class='form-control form-control-lg border-2', placeholder=('Dr. Full Name' if target_role == 'doctor' else 'Your Full Name')) }}
+            {% for error in form.full_name.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
 
-        <div class="mb-3">
-          {{ form.email.label(class='form-label') }}
-          {{ form.email(class='form-control form-control-lg', placeholder='you@example.com') }}
-          {% for error in form.email.errors %}<small class="text-danger">{{ error }}</small>{% endfor %}
-        </div>
+          <div class="mb-3">
+            {{ form.email.label(class='form-label fw-bold') }}
+            {{ form.email(class='form-control form-control-lg border-2', placeholder=('doctor@smarthealth.com' if target_role == 'doctor' else 'you@example.com')) }}
+            {% for error in form.email.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
 
-        <div class="mb-3">
-          {{ form.password.label(class='form-label') }}
-          {{ form.password(class='form-control form-control-lg') }}
-          {% for error in form.password.errors %}<small class="text-danger">{{ error }}</small>{% endfor %}
-        </div>
+          <div class="mb-3">
+            {{ form.password.label(class='form-label fw-bold') }}
+            {{ form.password(class='form-control form-control-lg border-2') }}
+            {% for error in form.password.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
 
-        <div class="mb-3">
-          {{ form.confirm_password.label(class='form-label') }}
-          {{ form.confirm_password(class='form-control form-control-lg') }}
-          {% for error in form.confirm_password.errors %}<small class="text-danger">{{ error }}</small>{% endfor %}
-        </div>
+          <div class="mb-3">
+            {{ form.confirm_password.label(class='form-label fw-bold') }}
+            {{ form.confirm_password(class='form-control form-control-lg border-2') }}
+            {% for error in form.confirm_password.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
 
-        <div class="form-check my-4">
-          {{ form.accept_terms(class='form-check-input') }}
-          <label class="form-check-label" for="accept_terms">I understand this is educational decision support and accept storage of submitted data under the privacy notice.</label>
-          {% for error in form.accept_terms.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}
-        </div>
+          <div class="form-check my-4">
+            {{ form.accept_terms(class='form-check-input') }}
+            <label class="form-check-label small text-muted" for="accept_terms">I accept the terms of service, privacy policy, and medical disclaimer.</label>
+            {% for error in form.accept_terms.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+          </div>
 
-        {{ form.submit(class='btn btn-primary btn-lg w-100', id='registerSubmit') }}
-        <p class="text-center small mt-3">Already registered? <a href="{{ url_for('login') }}">Sign in here</a></p>
-      </form>
+          {% if target_role == 'doctor' %}
+            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm">
+              <i class="bi bi-person-badge me-2"></i>Create Doctor Account
+            </button>
+            <p class="text-center small mt-4 mb-0 text-muted">
+              Already registered as a Doctor? <a href="{{ url_for('login', role='doctor') }}" class="fw-bold text-success text-decoration-none">Sign in to Doctor Portal</a>
+            </p>
+          {% else %}
+            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+              <i class="bi bi-person-plus me-2"></i>Create Patient Account
+            </button>
+            <p class="text-center small mt-4 mb-0 text-muted">
+              Already registered as a Patient? <a href="{{ url_for('login') }}" class="fw-bold text-primary text-decoration-none">Sign in to Patient Portal</a>
+            </p>
+          {% endif %}
+        </form>
+      </div>
     </div>
   </div>
 </div>
-
-{% block scripts %}
-<script>
-function setRole(role) {
-  const select = document.getElementById('accountTypeSelect');
-  const desc = document.getElementById('roleDescription');
-  const submitBtn = document.getElementById('registerSubmit');
-
-  if (select) select.value = role;
-  if (role === 'doctor') {
-    if (desc) desc.innerHTML = '<i class="bi bi-info-circle text-success me-1"></i> Doctors get full access to the Care Operations panel, patient appointment lists, and clinical messaging queue.';
-    if (submitBtn) {
-      submitBtn.innerText = 'Create Doctor Account';
-      submitBtn.className = 'btn btn-success btn-lg w-100 fw-bold';
-    }
-  } else {
-    if (desc) desc.innerHTML = '<i class="bi bi-info-circle text-primary me-1"></i> Patients get private symptom checker, appointments, and AI report analysis.';
-    if (submitBtn) {
-      submitBtn.innerText = 'Create Patient Account';
-      submitBtn.className = 'btn btn-primary btn-lg w-100 fw-bold';
-    }
-  }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('role') === 'doctor') {
-    setRole('doctor');
-  }
-});
-</script>
-{% endblock %}
 {% endblock %}
