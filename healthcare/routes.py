@@ -350,7 +350,7 @@ def register_public_routes(app):
 
     @app.post("/emergency-alert")
     @login_required
-    @limiter.limit("3 per hour")
+    @limiter.limit("30 per hour")
     def emergency_alert():
         if current_user.role != UserRole.PATIENT or not current_user.patient_profile:
             abort(403)
