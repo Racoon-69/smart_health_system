@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, DateField, EmailField, PasswordField, StringField, SubmitField, TextAreaField
+from wtforms import BooleanField, DateField, EmailField, PasswordField, SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
 
 
@@ -19,6 +19,7 @@ class RegistrationForm(FlaskForm):
     email = EmailField("Email", validators=[DataRequired(), Email(), Length(max=254)])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=128)])
     confirm_password = PasswordField("Confirm password", validators=[DataRequired(), EqualTo("password")])
+    account_type = SelectField("Account type", choices=[("patient", "Patient"), ("doctor", "Doctor / Healthcare Professional")], default="patient")
     accept_terms = BooleanField("I accept the privacy notice and medical disclaimer", validators=[DataRequired()])
     submit = SubmitField("Create secure account")
 

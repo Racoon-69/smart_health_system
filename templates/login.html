@@ -33,18 +33,24 @@
   <hr class="my-4">
   
   <div class="demo-section">
-    <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-lightning-charge me-1"></i> Quick Fill Development Credentials:</span>
+    <span class="text-muted small fw-semibold d-block mb-2"><i class="bi bi-lightning-charge me-1"></i> Quick Development Logins:</span>
     <div class="row g-2">
-      <div class="col-6">
+      <div class="col-4">
         <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('patient@example.com', 'DemoPatient!2026', 'patient')">
-          <small class="d-block fw-bold text-primary"><i class="bi bi-person-fill me-1"></i> Patient Demo</small>
-          <code class="small text-muted">patient@example.com</code>
+          <small class="d-block fw-bold text-primary"><i class="bi bi-person-fill me-1"></i> Patient</small>
+          <code class="small text-muted" style="font-size: 0.75rem;">patient@example.com</code>
         </button>
       </div>
-      <div class="col-6">
+      <div class="col-4">
         <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('asha@smarthealth.com', 'DemoPatient!2026', 'doctor')">
-          <small class="d-block fw-bold text-success"><i class="bi bi-person-badge-fill me-1"></i> Doctor Demo</small>
-          <code class="small text-muted">asha@smarthealth.com</code>
+          <small class="d-block fw-bold text-success"><i class="bi bi-person-badge-fill me-1"></i> Dr. Asha</small>
+          <code class="small text-muted" style="font-size: 0.75rem;">asha@smarthealth.com</code>
+        </button>
+      </div>
+      <div class="col-4">
+        <button type="button" class="btn btn-light btn-sm w-100 text-start p-2 border" onclick="fillCredential('admin@smarthealth.com', 'ChangeMe!Admin2026', 'doctor')">
+          <small class="d-block fw-bold text-danger"><i class="bi bi-shield-lock-fill me-1"></i> Admin</small>
+          <code class="small text-muted" style="font-size: 0.75rem;">admin@smarthealth.com</code>
         </button>
       </div>
     </div>
@@ -60,6 +66,7 @@ function switchLoginRole(role) {
   const sub = document.getElementById('loginSubtitle');
   const icon = document.getElementById('loginIcon');
   const emailInput = document.getElementById('emailInput');
+  const regPrompt = document.getElementById('registerPrompt');
 
   if (role === 'doctor') {
     tabPatient.classList.remove('active');
@@ -67,6 +74,7 @@ function switchLoginRole(role) {
     title.innerText = 'Doctor & Staff Portal';
     sub.innerText = 'Access clinical records, appointments, and patient message queue.';
     icon.innerHTML = '<i class="bi bi-hospital text-success"></i>';
+    regPrompt.innerHTML = 'Need a doctor account? <a href="{{ url_for("register", role="doctor") }}" class="fw-bold text-success">Register as Doctor</a>';
     if (!emailInput.value || emailInput.value === 'patient@example.com') {
       emailInput.placeholder = 'doctor@smarthealth.com';
     }
@@ -76,7 +84,8 @@ function switchLoginRole(role) {
     title.innerText = 'Secure Patient Access';
     sub.innerText = 'Access your personal health records, symptom checker, and appointments.';
     icon.innerHTML = '<i class="bi bi-shield-lock text-primary"></i>';
-    if (!emailInput.value || emailInput.value === 'asha@smarthealth.com') {
+    regPrompt.innerHTML = 'New patient? <a href="{{ url_for("register") }}">Create a private account</a>';
+    if (!emailInput.value || emailInput.value === 'asha@smarthealth.com' || emailInput.value === 'admin@smarthealth.com') {
       emailInput.placeholder = 'you@example.com';
     }
   }

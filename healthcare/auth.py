@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 
 from .extensions import db, limiter, login_manager
 from .forms import LoginForm, ProfileForm, RegistrationForm
-from .models import ConsentRecord, LoginActivity, PatientProfile, User, UserRole, UserSession, utcnow
+from .models import ConsentRecord, Department, DoctorProfile, Hospital, LoginActivity, PatientProfile, User, UserRole, UserSession, utcnow
 from .security import PHONE_RE, audit, clean_text
 
 
@@ -42,9 +42,31 @@ def register_auth_routes(app):
             if db.session.scalar(select(User).where(func.lower(User.email) == email)):
                 flash("An account with that email already exists.", "warning")
             else:
-                user = User(email=email, role=UserRole.PATIENT)
+                account_type = form.account_type.data
+                is_doctor = account_type == "doctor"
+                role = UserRole.DOCTOR if is_doctor else UserRole.PATIENT
+                user = User(email=email, role=role, email_verified=True)
                 user.set_password(form.password.data)
-                user.patient_profile = PatientProfile(full_name=clean_text(form.full_name.data, 120, required=True))
+                
+                if is_doctor:
+                    default_hospital = db.session.scalar(select(Hospital).order_by(Hospital.id))
+                    default_department = db.session.scalar(select(Department).order_by(Department.id))
+                    user.doctor_profile = DoctorProfile(
+                        display_name=clean_text(form.full_name.data, 120, required=True),
+                        hospital=default_hospital,
+                        department=default_department,
+                        qualification="MD Internal Medicine",
+                        experience_years=5,
+                        available_days="Sun-Fri",
+                        available_time="09:00 AM-05:00 PM",
+                        consultation_fee=1000,
+                        bio="Medical practitioner registered on SmartHealth.",
+                        is_verified=True,
+                        license_number=f"DOC-{utcnow().strftime('%Y%m%d%H%M%S')}",
+                    )
+                else:
+                    user.patient_profile = PatientProfile(full_name=clean_text(form.full_name.data, 120, required=True))
+
                 db.session.add(user)
                 db.session.flush()
                 db.session.add(
@@ -60,6 +82,9 @@ def register_auth_routes(app):
                 db.session.commit()
                 login_user(user)
                 session.permanent = True
+                if is_doctor:
+                    flash("Your doctor account has been created successfully. Welcome to your Doctor Workspace!", "success")
+                    return redirect(url_for("doctor_admin_dashboard"))
                 flash("Your private patient account is ready.", "success")
                 return redirect(url_for("profile"))
         return render_template("register.html", form=form)
