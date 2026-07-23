@@ -45,6 +45,13 @@ pg_restore --clean --if-exists --dbname="$RESTORE_DATABASE_URL" smarthealth.dump
 - appointment transaction conflicts and database lock time
 - upload rejects/parser errors and storage growth
 - audit export failures, clock drift, and backup age
+- emergency alert delivery failures, Twilio API errors, and partial recipient delivery
+
+## Emergency SMS
+
+Set `SMS_ENABLED=true`, `SMS_PROVIDER=twilio`, `SMS_FROM`, `TWILIO_ACCOUNT_SID`, and `TWILIO_AUTH_TOKEN` through the deployment secret manager. `SMS_FROM` must be a Twilio-approved E.164 sender or Messaging Service identity. Apply the emergency-alert Alembic migration during release with the normal `flask --app app db upgrade` step.
+
+The alert endpoint creates durable delivery records before calling Twilio. A `Sent` status means Twilio accepted the request; it does not mean the handset received the message. Review partial and failed delivery records, provider logs, and rate-limit events. Do not place full symptoms, reports, diagnoses, or medication data in SMS content.
 
 ## Scaling
 

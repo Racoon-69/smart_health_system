@@ -6,6 +6,8 @@ from healthcare.models import User
 def test_security_headers_and_protected_dashboard(client):
     response = client.get("/")
     assert response.status_code == 200
+    assert b"Send alert now" in response.data or b"Sign in to alert" in response.data
+    assert b"/symptom-checker" in response.data
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]
     assert client.get("/dashboard").status_code == 302
@@ -39,3 +41,30 @@ def test_csrf_rejects_unprotected_post(tmp_path):
     )
     response = app.test_client().post("/login", data={"email": "patient@example.com", "password": "DemoPatient!2026"})
     assert response.status_code == 400
+
+
+def test_registration_minimum_password_length(client):
+    res_short = client.post(
+        "/register",
+        data={
+            "full_name": "Test User",
+            "email": "shortpass@example.com",
+            "password": "1234567",
+            "confirm_password": "1234567",
+            "accept_terms": "y",
+        },
+    )
+    assert b"Field must be between 8 and 128 characters long." in res_short.data
+
+    res_valid = client.post(
+        "/register",
+        data={
+            "full_name": "Test User",
+            "email": "validpass@example.com",
+            "password": "12345678",
+            "confirm_password": "12345678",
+            "accept_terms": "y",
+        },
+        follow_redirects=True,
+    )
+    assert b"Your private patient account is ready." in res_valid.data

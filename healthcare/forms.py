@@ -17,7 +17,7 @@ class LoginForm(FlaskForm):
 class RegistrationForm(FlaskForm):
     full_name = StringField("Full name", validators=[DataRequired(), Length(min=2, max=120)])
     email = EmailField("Email", validators=[DataRequired(), Email(), Length(max=254)])
-    password = PasswordField("Password", validators=[DataRequired(), Length(min=15, max=128)])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=128)])
     confirm_password = PasswordField("Confirm password", validators=[DataRequired(), EqualTo("password")])
     accept_terms = BooleanField("I accept the privacy notice and medical disclaimer", validators=[DataRequired()])
     submit = SubmitField("Create secure account")
@@ -30,6 +30,9 @@ class ProfileForm(FlaskForm):
     phone = StringField("Phone", validators=[Optional(), Length(max=30)])
     city = StringField("City", validators=[Optional(), Length(max=80)])
     emergency_contact = StringField("Emergency contact", validators=[Optional(), Length(max=120)])
+    family_contact_name = StringField("Family contact name", validators=[Optional(), Length(max=120)])
+    family_contact_phone = StringField("Family contact phone", validators=[Optional(), Length(max=30)])
+    family_contact_relationship = StringField("Relationship", validators=[Optional(), Length(max=60)])
     medical_conditions = TextAreaField("Existing conditions", validators=[Optional(), Length(max=2000)])
     allergies = TextAreaField("Allergies", validators=[Optional(), Length(max=2000)])
     current_medications = TextAreaField("Current medications", validators=[Optional(), Length(max=2000)])

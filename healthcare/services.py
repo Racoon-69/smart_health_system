@@ -12,6 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from pypdf import PdfReader
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
+from twilio.rest import Client
 
 from .extensions import db
 from .models import (
@@ -26,10 +27,44 @@ from .models import (
     PaymentStatus,
     utcnow,
 )
+from .security import PHONE_RE
 
 TIME_SLOTS = ["09:00 AM", "10:00 AM", "11:00 AM", "01:00 PM", "02:00 PM", "03:00 PM", "05:00 PM"]
 SLOT_CAPACITY = 3
 PAYMENT_METHODS = ["Cash at hospital", "eSewa", "Khalti", "Card", "Bank transfer"]
+
+
+def normalize_sms_phone(phone: str | None) -> str:
+    value = "".join((phone or "").split())
+    if not PHONE_RE.match(value) or sum(character.isdigit() for character in value) < 7:
+        raise ValueError("A valid recipient phone number is required.")
+    return value
+
+
+def send_emergency_sms(*, phone: str, recipient_name: str, patient_name: str, category: str | None) -> dict:
+    """Deliver a minimal alert through the configured provider adapter."""
+    normalized_phone = normalize_sms_phone(phone)
+    category_text = f" ({category})" if category else ""
+    message = (
+        f"Smart Health urgent alert{category_text}: {patient_name} may need immediate assistance. "
+        "Please contact them and local emergency services."
+    )
+    if not current_app.config.get("SMS_ENABLED"):
+        return {"status": "failed", "error": "SMS delivery is not enabled.", "message": message}
+    if current_app.config.get("SMS_PROVIDER") == "mock":
+        return {"status": "sent", "provider_message_id": f"mock-{normalized_phone[-6:]}", "message": message}
+    if current_app.config.get("SMS_PROVIDER") != "twilio":
+        return {"status": "failed", "error": "Unsupported SMS provider.", "message": message}
+    account_sid = current_app.config.get("TWILIO_ACCOUNT_SID")
+    auth_token = current_app.config.get("TWILIO_AUTH_TOKEN")
+    sender = current_app.config.get("SMS_FROM")
+    if not account_sid or not auth_token or not sender:
+        return {"status": "failed", "error": "Twilio SMS credentials and SMS_FROM are required.", "message": message}
+    try:
+        result = Client(account_sid, auth_token).messages.create(body=message, from_=sender, to=normalized_phone)
+    except Exception:
+        return {"status": "failed", "error": "The SMS provider rejected the delivery request.", "message": message}
+    return {"status": "sent", "provider_message_id": result.sid, "message": message}
 
 
 def hospital_search(term: str = "", city: str = "") -> list[Hospital]:

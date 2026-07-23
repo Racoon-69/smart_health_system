@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 
 from .extensions import db, limiter, login_manager
 from .forms import LoginForm, ProfileForm, RegistrationForm
-from .models import ConsentRecord, PatientProfile, User, UserRole, utcnow
+from .models import ConsentRecord, LoginActivity, PatientProfile, User, UserRole, UserSession, utcnow
 from .security import PHONE_RE, audit, clean_text
 
 
@@ -83,7 +83,27 @@ def register_auth_routes(app):
             if user and user.is_active and not locked and user.check_password(form.password.data):
                 user.failed_login_count = 0
                 user.locked_until = None
-                user.last_login_at = now
+                ip_addr = request.access_route[0] if request.access_route else (request.remote_addr or "")
+                ua_str = (request.user_agent.string or "")[:300] if request.user_agent else ""
+                db.session.add(
+                    LoginActivity(
+                        user=user,
+                        email=email,
+                        succeeded=True,
+                        ip_address=ip_addr,
+                        user_agent=ua_str,
+                    )
+                )
+                db.session.add(
+                    UserSession(
+                        user=user,
+                        email_entered=email,
+                        ip_address=ip_addr,
+                        user_agent=ua_str,
+                        logged_in_at=now,
+                        is_active=True,
+                    )
+                )
                 audit("account.login", "user", user.public_id)
                 db.session.commit()
                 session.clear()
@@ -98,7 +118,16 @@ def register_auth_routes(app):
                         user.locked_until = now + timedelta(minutes=15)
                         user.failed_login_count = 0
                 audit("account.login_failed", "user", user.public_id, outcome="failure")
-                db.session.commit()
+            db.session.add(
+                LoginActivity(
+                    user=user,
+                    email=email,
+                    succeeded=False,
+                    ip_address=request.access_route[0] if request.access_route else (request.remote_addr or ""),
+                    user_agent=(request.user_agent.string or "")[:300] if request.user_agent else "",
+                )
+            )
+            db.session.commit()
             flash("Sign-in failed. Check your credentials or wait if the account is temporarily locked.", "danger")
         return render_template("login.html", form=form)
 
@@ -120,11 +149,23 @@ def register_auth_routes(app):
         profile = current_user.patient_profile or PatientProfile(user=current_user, full_name=current_user.name)
         form = ProfileForm(obj=profile)
         if form.validate_on_submit():
-            if form.phone.data and not PHONE_RE.match(form.phone.data):
+            if any(
+                value and not PHONE_RE.match(value)
+                for value in (form.phone.data, form.family_contact_phone.data)
+            ):
                 flash("Enter a valid phone number.", "danger")
             else:
                 form.populate_obj(profile)
-                for field in ("full_name", "gender", "phone", "city", "emergency_contact"):
+                for field in (
+                    "full_name",
+                    "gender",
+                    "phone",
+                    "city",
+                    "emergency_contact",
+                    "family_contact_name",
+                    "family_contact_phone",
+                    "family_contact_relationship",
+                ):
                     value = getattr(profile, field)
                     if value:
                         setattr(profile, field, clean_text(value, 120 if field != "phone" else 30))
@@ -144,8 +185,8 @@ def register_auth_routes(app):
         confirmation = request.form.get("confirm_password", "")
         if not current_user.check_password(current_password):
             flash("The current password is incorrect.", "danger")
-        elif len(new_password) < 15 or len(new_password) > 128:
-            flash("New passwords must be 15–128 characters.", "danger")
+        elif len(new_password) < 8 or len(new_password) > 128:
+            flash("New passwords must be 8–128 characters.", "danger")
         elif new_password != confirmation:
             flash("New password confirmation does not match.", "danger")
         else:

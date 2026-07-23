@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import Pipeline
+from sklearn.svm import LinearSVC
+
 EMERGENCY_KEYWORDS = [
     "chest pain",
     "severe bleeding",
@@ -14,6 +19,39 @@ EMERGENCY_KEYWORDS = [
     "blue lips",
     "severe burn",
 ]
+
+_EMERGENCY_EXAMPLES = [
+    "chest pain and sweating",
+    "severe bleeding that will not stop",
+    "the patient is unconscious",
+    "difficulty breathing and blue lips",
+    "possible stroke with one sided weakness",
+    "severe allergic reaction with throat swelling",
+    "severe headache with confusion",
+    "I am fainting",
+    "a severe burn needs urgent help",
+    "unable to breathe normally",
+]
+_NON_EMERGENCY_EXAMPLES = [
+    "mild cough for two days",
+    "routine blood sugar follow up",
+    "occasional heartburn after meals",
+    "small itchy rash on my arm",
+    "tired after a busy day",
+    "mild headache that improves with rest",
+    "schedule a regular appointment",
+    "slight runny nose",
+    "check my medication list",
+    "minor muscle ache",
+]
+
+_EMERGENCY_SVM = Pipeline(
+    [
+        ("tfidf", TfidfVectorizer(ngram_range=(1, 3), lowercase=True, sublinear_tf=True)),
+        ("classifier", LinearSVC(class_weight="balanced", random_state=42)),
+    ]
+)
+_EMERGENCY_SVM.fit(_EMERGENCY_EXAMPLES + _NON_EMERGENCY_EXAMPLES, [1] * len(_EMERGENCY_EXAMPLES) + [0] * len(_NON_EMERGENCY_EXAMPLES))
 
 
 def _profile(name, keywords, description, care, diet, lifestyle, avoid, warnings, specialist, department):
@@ -190,25 +228,72 @@ DISEASES = {
     ),
 }
 
+# Build dataset to train Random Forest Classifier for Disease Prediction
+_rf_samples = []
+_rf_labels = []
+
+for disease_key, profile in DISEASES.items():
+    keywords = profile["keywords"]
+    for kw in keywords:
+        _rf_samples.append(f"patient has {kw}")
+        _rf_samples.append(f"symptoms of {kw} and {keywords[0]}")
+        _rf_samples.append(f"feeling {kw} {profile['description']}")
+    _rf_samples.append(profile["name"].lower())
+    _rf_labels.extend([disease_key] * (len(keywords) * 3 + 1))
+
+_DISEASE_RF_PIPELINE = Pipeline(
+    [
+        ("tfidf", TfidfVectorizer(ngram_range=(1, 2), lowercase=True, sublinear_tf=True)),
+        ("classifier", RandomForestClassifier(n_estimators=100, random_state=42)),
+    ]
+)
+_DISEASE_RF_PIPELINE.fit(_rf_samples, _rf_labels)
+
 
 def analyze_text(text: str) -> dict:
     clean = " ".join((text or "").lower().split())
+    
+    # 1. Random Forest Model Prediction
+    rf_probs = _DISEASE_RF_PIPELINE.predict_proba([clean])[0]
+    rf_classes = list(_DISEASE_RF_PIPELINE.classes_)
+    
+    # Keyword overlay for exact term detection
     scored = []
     for key, profile in DISEASES.items():
         found = [word for word in profile["keywords"] if word in clean]
         if found:
             scored.append((len(found), key, found))
     scored.sort(reverse=True)
-    if not scored:
-        key, found, score = "infection", [], 0
+    
+    # Top predicted class from Random Forest
+    rf_top_idx = int(rf_probs.argmax())
+    rf_top_key = rf_classes[rf_top_idx]
+    rf_top_prob = float(rf_probs[rf_top_idx])
+    
+    # If explicit keywords found, align primary prediction, else use Random Forest predicted key
+    if scored:
+        key = scored[0][1]
+        found = scored[0][2]
     else:
-        score, key, found = scored[0]
-    confidence = "High" if score >= 4 else "Medium" if score >= 2 else "Low"
+        key = rf_top_key if clean else "infection"
+        found = []
+        
+    # Order candidate alternatives using Random Forest probabilities
+    prob_class_pairs = sorted(zip(rf_probs, rf_classes), reverse=True)
+    alt_keys = [c for _, c in prob_class_pairs if c != key][:2]
+
+    confidence = "High" if (len(found) >= 4 or rf_top_prob > 0.4) else "Medium" if (len(found) >= 2 or rf_top_prob > 0.2) else "Low"
+    svm_emergency = bool(_EMERGENCY_SVM.predict([clean])[0])
+    svm_score = float(_EMERGENCY_SVM.decision_function([clean])[0])
+    
     return {
         "key": key,
         "profile": DISEASES[key],
         "keywords": found,
         "confidence": confidence,
-        "emergency": any(word in clean for word in EMERGENCY_KEYWORDS),
-        "alternatives": [DISEASES[item[1]]["name"] for item in scored[1:3]],
+        "emergency": svm_emergency,
+        "emergency_score": round(svm_score, 4),
+        "alternatives": [DISEASES[alt_key]["name"] for alt_key in alt_keys if alt_key in DISEASES],
+        "model_used": "Random Forest Classifier",
+        "rf_probability": round(rf_top_prob, 4),
     }

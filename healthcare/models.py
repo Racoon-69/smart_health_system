@@ -60,6 +60,18 @@ class ConversationStatus(str, enum.Enum):
     CLOSED = "Closed"
 
 
+class EmergencyAlertStatus(str, enum.Enum):
+    PENDING = "Pending"
+    SENT = "Sent"
+    PARTIAL = "Partial"
+    FAILED = "Failed"
+
+
+class AlertRecipientType(str, enum.Enum):
+    DOCTOR = "doctor"
+    FAMILY = "family"
+
+
 hospital_departments = Table(
     "hospital_departments",
     db.metadata,
@@ -99,6 +111,15 @@ class User(UserMixin, TimestampMixin, db.Model):
         back_populates="user", cascade="all, delete-orphan", uselist=False
     )
     doctor_profile: Mapped["DoctorProfile | None"] = relationship(back_populates="user", uselist=False)
+    ai_conversations: Mapped[list["AIConversation"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan"
+    )
+    login_activities: Mapped[list["LoginActivity"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    user_sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = password_hasher.hash(password)
@@ -131,6 +152,9 @@ class PatientProfile(TimestampMixin, db.Model):
     phone: Mapped[str | None] = mapped_column(String(30))
     city: Mapped[str | None] = mapped_column(String(80))
     emergency_contact: Mapped[str | None] = mapped_column(String(120))
+    family_contact_name: Mapped[str | None] = mapped_column(String(120))
+    family_contact_phone: Mapped[str | None] = mapped_column(String(30))
+    family_contact_relationship: Mapped[str | None] = mapped_column(String(60))
     medical_conditions: Mapped[str | None] = mapped_column(Text)
     allergies: Mapped[str | None] = mapped_column(Text)
     current_medications: Mapped[str | None] = mapped_column(Text)
@@ -203,6 +227,7 @@ class DoctorProfile(TimestampMixin, db.Model):
     department_id: Mapped[int] = mapped_column(ForeignKey("departments.id"), nullable=False, index=True)
     experience_years: Mapped[int] = mapped_column(default=0)
     qualification: Mapped[str | None] = mapped_column(String(200))
+    sms_phone: Mapped[str | None] = mapped_column(String(30))
     available_days: Mapped[str | None] = mapped_column(String(100))
     available_time: Mapped[str | None] = mapped_column(String(100))
     consultation_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
@@ -423,6 +448,99 @@ class Message(TimestampMixin, db.Model):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
     sender: Mapped[User | None] = relationship()
+
+
+class AIConversation(TimestampMixin, db.Model):
+    """A patient-owned conversation with the educational AI assistant."""
+
+    __tablename__ = "ai_conversations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid.uuid4()), index=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    report_analysis_id: Mapped[int | None] = mapped_column(ForeignKey("report_analyses.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(String(180), default="Health question", nullable=False)
+    patient: Mapped[User] = relationship(back_populates="ai_conversations")
+    report_analysis: Mapped["ReportAnalysis | None"] = relationship()
+    messages: Mapped[list["AIMessage"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", order_by="AIMessage.created_at"
+    )
+
+
+class AIMessage(TimestampMixin, db.Model):
+    __tablename__ = "ai_messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sender_role: Mapped[str] = mapped_column(String(20), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    conversation: Mapped[AIConversation] = relationship(back_populates="messages")
+
+
+class EmergencyAlert(TimestampMixin, db.Model):
+    __tablename__ = "emergency_alerts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid.uuid4()), index=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_id: Mapped[int] = mapped_column(ForeignKey("doctor_profiles.id"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(40), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(80))
+    idempotency_key: Mapped[str] = mapped_column(String(140), unique=True, nullable=False)
+    status: Mapped[EmergencyAlertStatus] = mapped_column(
+        Enum(EmergencyAlertStatus, native_enum=False, length=20), default=EmergencyAlertStatus.PENDING, nullable=False
+    )
+    patient: Mapped[User] = relationship()
+    doctor: Mapped[DoctorProfile] = relationship()
+    deliveries: Mapped[list["EmergencyAlertDelivery"]] = relationship(
+        back_populates="alert", cascade="all, delete-orphan", order_by="EmergencyAlertDelivery.id"
+    )
+
+
+class EmergencyAlertDelivery(TimestampMixin, db.Model):
+    __tablename__ = "emergency_alert_deliveries"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    alert_id: Mapped[int] = mapped_column(ForeignKey("emergency_alerts.id", ondelete="CASCADE"), nullable=False, index=True)
+    recipient_type: Mapped[AlertRecipientType] = mapped_column(
+        Enum(AlertRecipientType, native_enum=False, length=20), nullable=False
+    )
+    recipient_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    recipient_phone: Mapped[str] = mapped_column(String(30), nullable=False)
+    status: Mapped[EmergencyAlertStatus] = mapped_column(
+        Enum(EmergencyAlertStatus, native_enum=False, length=20), default=EmergencyAlertStatus.PENDING, nullable=False
+    )
+    provider_message_id: Mapped[str | None] = mapped_column(String(150))
+    error_message: Mapped[str | None] = mapped_column(String(300))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    alert: Mapped[EmergencyAlert] = relationship(back_populates="deliveries")
+
+
+class LoginActivity(db.Model):
+    """Auditable sign-in outcome record; passwords are never stored here."""
+
+    __tablename__ = "login_activities"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
+    succeeded: Mapped[bool] = mapped_column(nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    user: Mapped[User | None] = relationship(back_populates="login_activities")
+
+
+class UserSession(TimestampMixin, db.Model):
+    """Active user session details recorded during successful login."""
+
+    __tablename__ = "user_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_token: Mapped[str] = mapped_column(String(64), unique=True, default=lambda: str(uuid.uuid4()), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    email_entered: Mapped[str] = mapped_column(String(254), nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(300))
+    logged_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    user: Mapped[User] = relationship(back_populates="user_sessions")
 
 
 class ConsentRecord(TimestampMixin, db.Model):

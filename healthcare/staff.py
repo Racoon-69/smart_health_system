@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from types import SimpleNamespace
 
 from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from .extensions import db
 from .models import (
@@ -191,6 +193,64 @@ def register_staff_routes(app):
     def doctor_admin_slots():
         return redirect(url_for("slot_availability"))
 
+    @app.route("/doctor-admin/profile", methods=["GET", "POST"])
+    @role_required(UserRole.DOCTOR, UserRole.ADMIN)
+    def doctor_profile_management():
+        from .models import User
+        doctor = current_user.doctor_profile
+        if not doctor and current_user.role == UserRole.ADMIN:
+            doctor_id = request.args.get("doctor_id")
+            if doctor_id and doctor_id.isdigit():
+                doctor = db.session.get(DoctorProfile, int(doctor_id))
+            if not doctor:
+                doctor = db.session.scalar(select(DoctorProfile).order_by(DoctorProfile.id))
+        if not doctor:
+            flash("No doctor profile found for this account.", "warning")
+            return redirect(url_for("doctor_admin_dashboard"))
+
+        hospitals = list(db.session.scalars(select(Hospital).order_by(Hospital.name)))
+        departments = list(db.session.scalars(select(Department).order_by(Department.name)))
+
+        if request.method == "POST":
+            try:
+                display_name = clean_text(request.form.get("display_name"), 140, required=True)
+                hospital_id = int(request.form.get("hospital_id", ""))
+                department_id = int(request.form.get("department_id", ""))
+                hospital = db.session.get(Hospital, hospital_id)
+                department = db.session.get(Department, department_id)
+                if not hospital or not department:
+                    raise ValueError("Select a valid hospital and department.")
+                
+                try:
+                    fee = Decimal(request.form.get("consultation_fee") or "0")
+                    experience_years = int(request.form.get("experience_years") or 0)
+                except (InvalidOperation, ValueError):
+                    raise ValueError("Enter a valid non-negative fee and experience.")
+
+                doctor.display_name = display_name
+                doctor.hospital = hospital
+                doctor.department = department
+                doctor.consultation_fee = fee
+                doctor.experience_years = experience_years
+                doctor.qualification = clean_text(request.form.get("qualification"), 200)
+                doctor.available_days = clean_text(request.form.get("available_days"), 100)
+                doctor.available_time = clean_text(request.form.get("available_time"), 100)
+                doctor.license_number = clean_text(request.form.get("license_number"), 100)
+                doctor.sms_phone = clean_text(request.form.get("sms_phone"), 30)
+                doctor.bio = clean_text(request.form.get("bio"), 2000)
+
+                audit("doctor.profile_update", "doctor_profile", doctor.public_id)
+                db.session.commit()
+                flash("Doctor profile updated successfully!", "success")
+                return redirect(url_for("doctor_profile_management"))
+            except (ValueError, TypeError) as exc:
+                db.session.rollback()
+                flash(str(exc), "danger")
+
+        return render_template(
+            "doctor_profile.html", doctor=doctor, hospitals=hospitals, departments=departments
+        )
+
     @app.route("/staff/directory", methods=["GET", "POST"])
     @role_required(UserRole.ADMIN)
     def staff_directory():
@@ -225,14 +285,24 @@ def register_staff_routes(app):
                         raise ValueError("Choose a valid hospital and department.")
                     if department not in hospital.departments_rel:
                         hospital.departments_rel.append(department)
+                    try:
+                        fee = Decimal(request.form.get("consultation_fee") or "0")
+                        experience_years = int(request.form.get("experience_years") or 0)
+                    except (InvalidOperation, ValueError):
+                        raise ValueError("Enter a valid non-negative fee and experience.")
+                    if fee < 0 or experience_years < 0 or experience_years > 100:
+                        raise ValueError("Fee and experience must be non-negative and experience cannot exceed 100 years.")
                     doctor = DoctorProfile(
                         display_name=clean_text(request.form.get("name"), 140, required=True),
                         hospital=hospital,
                         department=department,
                         qualification=clean_text(request.form.get("qualification"), 200),
-                        consultation_fee=request.form.get("consultation_fee") or 0,
+                        consultation_fee=fee,
+                        experience_years=experience_years,
                         available_days=clean_text(request.form.get("available_days"), 100),
                         available_time=clean_text(request.form.get("available_time"), 100),
+                        bio=clean_text(request.form.get("bio"), 2000),
+                        license_number=clean_text(request.form.get("license_number"), 100),
                         is_verified=False,
                     )
                     db.session.add(doctor)
@@ -243,6 +313,9 @@ def register_staff_routes(app):
                 db.session.commit()
                 flash("Directory record created.", "success")
                 return redirect(url_for("staff_directory"))
+            except IntegrityError:
+                db.session.rollback()
+                flash("A record with that hospital name or doctor license number already exists.", "danger")
             except (ValueError, TypeError) as exc:
                 db.session.rollback()
                 flash(str(exc), "danger")

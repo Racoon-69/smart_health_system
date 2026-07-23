@@ -11,23 +11,30 @@ from flask import abort, current_app, flash, jsonify, redirect, render_template,
 from flask_login import current_user, login_required
 from sqlalchemy import func, select, text
 
-from utils.chatbot import bot_reply
+from utils.chatbot import bot_reply, report_chat_reply
 from utils.health_rules import DISEASES, analyze_text
 from utils.photo_analyzer import analyze_photo
 
 from .extensions import csrf, db, limiter
 from .models import (
+    AIConversation,
+    AIMessage,
+    AlertRecipientType,
     Appointment,
     AppointmentStatus,
     Conversation,
     ConversationStatus,
     DoctorProfile,
+    EmergencyAlert,
+    EmergencyAlertDelivery,
+    EmergencyAlertStatus,
     Hospital,
     Message,
     PaymentStatus,
     PhotoAnalysis,
     ReportAnalysis,
     UserRole,
+    utcnow,
 )
 from .security import audit, clean_text, owns_patient_record
 from .services import (
@@ -37,9 +44,11 @@ from .services import (
     cancel_appointment_record,
     doctor_search,
     hospital_search,
+    normalize_sms_phone,
     process_photo_upload,
     process_report_upload,
     reserve_appointment,
+    send_emergency_sms,
     slot_details,
 )
 
@@ -64,6 +73,104 @@ def _conversation_view(conversation: Conversation):
         status=conversation.status.value,
         created_at=conversation.created_at.strftime("%Y-%m-%d %H:%M"),
     )
+
+
+def _preferred_doctor(patient_id: int) -> DoctorProfile | None:
+    conversation = db.session.scalar(
+        select(Conversation)
+        .where(Conversation.patient_id == patient_id)
+        .order_by(Conversation.updated_at.desc())
+    )
+    if conversation and conversation.doctor and conversation.doctor.is_active:
+        return conversation.doctor
+    appointment = db.session.scalar(
+        select(Appointment)
+        .where(Appointment.patient_id == patient_id, Appointment.status == AppointmentStatus.BOOKED)
+        .order_by(Appointment.created_at.desc())
+    )
+    if appointment and appointment.doctor and appointment.doctor.is_active:
+        return appointment.doctor
+    return None
+
+
+def _dispatch_emergency_alert(*, patient, doctor, source: str, category: str | None, event_id: str):
+    profile = patient.patient_profile
+    if not profile or not doctor or not doctor.sms_phone or not profile.family_contact_phone:
+        raise ValueError("Configure both a doctor SMS number and a family contact first.")
+    try:
+        doctor_phone = normalize_sms_phone(doctor.sms_phone)
+        family_phone = normalize_sms_phone(profile.family_contact_phone)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+    idempotency_key = f"{patient.id}:{event_id}"
+    existing = db.session.scalar(select(EmergencyAlert).where(EmergencyAlert.idempotency_key == idempotency_key))
+    if existing:
+        return existing, sum(delivery.status == EmergencyAlertStatus.SENT for delivery in existing.deliveries), True
+    alert = EmergencyAlert(
+        patient_id=patient.id,
+        doctor_id=doctor.id,
+        source=source,
+        category=category,
+        idempotency_key=idempotency_key,
+    )
+    alert.deliveries = [
+        EmergencyAlertDelivery(
+            recipient_type=AlertRecipientType.DOCTOR,
+            recipient_name=doctor.display_name,
+            recipient_phone=doctor_phone,
+        ),
+        EmergencyAlertDelivery(
+            recipient_type=AlertRecipientType.FAMILY,
+            recipient_name=profile.family_contact_name or profile.family_contact_relationship or "Family contact",
+            recipient_phone=family_phone,
+        ),
+    ]
+    db.session.add(alert)
+    db.session.flush()
+    audit("emergency_alert.create", "emergency_alert", alert.public_id)
+    db.session.commit()
+    delivered = 0
+    for delivery in alert.deliveries:
+        result = send_emergency_sms(
+            phone=delivery.recipient_phone,
+            recipient_name=delivery.recipient_name,
+            patient_name=patient.name,
+            category=alert.category,
+        )
+        delivery.status = EmergencyAlertStatus.SENT if result["status"] == "sent" else EmergencyAlertStatus.FAILED
+        delivery.provider_message_id = result.get("provider_message_id")
+        delivery.error_message = result.get("error")
+        delivery.sent_at = utcnow() if result["status"] == "sent" else None
+        delivered += result["status"] == "sent"
+    alert.status = (
+        EmergencyAlertStatus.SENT
+        if delivered == len(alert.deliveries)
+        else EmergencyAlertStatus.PARTIAL
+        if delivered
+        else EmergencyAlertStatus.FAILED
+    )
+    audit("emergency_alert.deliver", "emergency_alert", alert.public_id, outcome=alert.status.value.lower())
+    db.session.commit()
+    return alert, delivered, False
+
+
+def _alert_critical_report(patient, analysis, result: dict) -> None:
+    if not result["emergency"]:
+        return
+    doctor = _preferred_doctor(patient.id)
+    try:
+        if not doctor:
+            raise ValueError("No active doctor is linked to your account.")
+        _dispatch_emergency_alert(
+            patient=patient,
+            doctor=doctor,
+            source="critical-report",
+            category="critical report",
+            event_id=f"report-{analysis.public_id}",
+        )
+        flash("Critical report alert sent to your doctor and family contact.", "danger")
+    except ValueError as exc:
+        flash(f"Critical report detected. Alert not sent: {exc}", "warning")
 
 
 def register_public_routes(app):
@@ -167,12 +274,13 @@ def register_public_routes(app):
                     detected_condition=profile["name"],
                     confidence=result["confidence"],
                     matched_keywords=result["keywords"],
-                    result_payload=profile,
+                    result_payload={**profile, "emergency": result["emergency"], "emergency_score": result["emergency_score"]},
                 )
                 db.session.add(analysis)
                 db.session.flush()
                 audit("report.analyze", "report_analysis", analysis.public_id)
                 db.session.commit()
+                _alert_critical_report(current_user, analysis, result)
                 return redirect(url_for("report_result", id=analysis.public_id))
             except ValueError as exc:
                 db.session.rollback()
@@ -221,6 +329,37 @@ def register_public_routes(app):
                 except ValueError:
                     flash("Enter a valid age and concise symptom description.", "danger")
         return render_template("symptom_checker.html", result=result, hospitals=hospitals, doctors=doctors)
+
+    @app.post("/emergency-alert")
+    @login_required
+    @limiter.limit("3 per hour")
+    def emergency_alert():
+        if current_user.role != UserRole.PATIENT or not current_user.patient_profile:
+            abort(403)
+        source = clean_text(request.form.get("source"), 40) or "symptom-checker"
+        event_id = clean_text(request.form.get("event_id"), 100) or f"{source}-{utcnow().timestamp()}"
+        doctor_id_text = request.form.get("doctor_id", "")
+        if doctor_id_text.isdigit():
+            doctor = db.session.scalar(
+                select(DoctorProfile).where(
+                    DoctorProfile.id == int(doctor_id_text), DoctorProfile.is_active.is_(True)
+                )
+            )
+        else:
+            doctor = _preferred_doctor(current_user.id)
+        try:
+            alert, delivered, duplicate = _dispatch_emergency_alert(
+                patient=current_user,
+                doctor=doctor,
+                source=source,
+                category=clean_text(request.form.get("category"), 80) or None,
+                event_id=event_id,
+            )
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        if duplicate:
+            return jsonify({"alert_id": alert.public_id, "status": alert.status.value, "duplicate": True}), 200
+        return jsonify({"alert_id": alert.public_id, "status": alert.status.value, "delivered": delivered}), 201
 
     @app.route("/photo-analysis", methods=["GET", "POST"])
     @login_required
@@ -470,6 +609,67 @@ def register_public_routes(app):
         return render_template(
             "chat.html", doctors=doctor_search(), chats=[_conversation_view(c) for c in conversations]
         )
+
+    @app.route("/ai-chat", methods=["GET", "POST"])
+    @login_required
+    @limiter.limit("30 per hour")
+    def ai_chat():
+        """Standalone, persisted AI guidance that is not visible to clinicians."""
+        if current_user.role != UserRole.PATIENT:
+            return redirect(url_for("doctor_admin_dashboard"))
+        if request.method == "POST":
+            try:
+                question = clean_text(request.form.get("message"), 3000)
+                upload = request.files.get("report_file")
+                report_analysis = None
+                if upload and upload.filename:
+                    original, storage_key, extracted = process_report_upload(upload)
+                    report_result = analyze_text(extracted)
+                    report_analysis = ReportAnalysis(
+                        patient_id=current_user.id,
+                        original_filename=original,
+                        storage_key=storage_key,
+                        extracted_text=extracted,
+                        detected_condition=report_result["profile"]["name"],
+                        confidence=report_result["confidence"],
+                        matched_keywords=report_result["keywords"],
+                        result_payload={
+                            **report_result["profile"],
+                            "emergency": report_result["emergency"],
+                            "emergency_score": report_result["emergency_score"],
+                        },
+                    )
+                    db.session.add(report_analysis)
+                    question = question or "Please help me understand this uploaded report."
+                    answer = report_chat_reply(extracted, question)
+                else:
+                    if not question:
+                        raise ValueError("Ask a question or upload a PDF/TXT report.")
+                    answer = bot_reply(question)
+                conversation = AIConversation(
+                    patient_id=current_user.id, report_analysis=report_analysis, title=question[:180]
+                )
+                conversation.messages = [
+                    AIMessage(sender_role="patient", body=question),
+                    AIMessage(sender_role="ai", body=answer),
+                ]
+                db.session.add(conversation)
+                db.session.flush()
+                audit("ai_chat.create", "ai_conversation", conversation.public_id)
+                if report_analysis:
+                    audit("report.ai_chat_analyze", "report_analysis", report_analysis.public_id)
+                db.session.commit()
+                if report_analysis:
+                    _alert_critical_report(current_user, report_analysis, report_result)
+                return redirect(url_for("ai_chat"))
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), "danger")
+        conversations = list(db.session.scalars(
+            select(AIConversation).where(AIConversation.patient_id == current_user.id)
+            .order_by(AIConversation.updated_at.desc())
+        ))
+        return render_template("ai_chat.html", conversations=conversations)
 
     @app.route("/slot-availability")
     def slot_availability():

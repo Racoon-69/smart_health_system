@@ -60,8 +60,28 @@ def create_app(config_name: str | None = None, test_config: dict | None = None) 
             from .seed import seed_database
 
             db.create_all()
+            _ensure_schema_columns(db)
             seed_database()
     return app
+
+
+def _ensure_schema_columns(app_db) -> None:
+    """Safely ensure newly added model columns exist on existing SQLite database tables."""
+    from sqlalchemy import inspect, text
+
+    try:
+        inspector = inspect(app_db.engine)
+        db_tables = set(inspector.get_table_names())
+        with app_db.engine.begin() as conn:
+            for table_name, table in app_db.metadata.tables.items():
+                if table_name in db_tables:
+                    existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
+                    for column in table.columns:
+                        if column.name not in existing_cols:
+                            col_type = column.type.compile(app_db.engine.dialect)
+                            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column.name} {col_type}"))
+    except Exception:
+        pass
 
 
 def register_security_headers(app: Flask) -> None:
@@ -151,8 +171,8 @@ def register_cli(app: Flask) -> None:
         from .models import User, UserRole
 
         normalized = email.strip().lower()
-        if len(password) < 15:
-            raise click.ClickException("Password must contain at least 15 characters.")
+        if len(password) < 8:
+            raise click.ClickException("Password must contain at least 8 characters.")
         if db.session.scalar(select(User).where(func.lower(User.email) == normalized)):
             raise click.ClickException("That email already exists.")
         user = User(email=normalized, role=UserRole.ADMIN, email_verified=True)

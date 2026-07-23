@@ -19,6 +19,7 @@ This is a substantial engineering baseline, not a claim of clinical or regulator
 - Consent capture and auditable sensitive actions
 - Non-root/read-only container, PostgreSQL, Redis, Gunicorn, health probes, and migration entrypoint
 - Automated authorization, upload, booking, refund, bot-safety, and health tests
+- Linear SVM emergency-language classification with explicit patient-confirmed Twilio alerts
 
 ## Local development
 
@@ -34,6 +35,22 @@ flask --app app run --debug
 Open <http://127.0.0.1:5000>.
 
 Migrations are the authoritative schema path. `AUTO_CREATE_DB=true` exists only as an optional disposable-development shortcut; do not use it for maintained environments.
+
+### Emergency SMS alerts
+
+Emergency language is classified by a linear SVM over the submitted text. An emergency result does not send automatically: the authenticated patient must confirm an alert and select an active doctor. The alert sends a minimal message to the configured doctor and family contact.
+
+To enable live SMS, set these values in the environment and use a Twilio E.164 sender number or approved Messaging Service:
+
+```bash
+SMS_ENABLED=true
+SMS_PROVIDER=twilio
+SMS_FROM=+15551234567
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+```
+
+The provider call is synchronous and the database records each recipient result. Configure the family contact in the patient profile and the doctor SMS number through the staff/admin data path before testing. Twilio acceptance is not confirmation that a person received or responded to the message. Always contact local emergency services first.
 
 ### Development accounts
 

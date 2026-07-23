@@ -51,8 +51,8 @@ def audit(action: str, entity_type: str, entity_id=None, *, outcome="success", d
         entity_type=entity_type,
         entity_id=str(entity_id) if entity_id is not None else None,
         outcome=outcome,
-        ip_address=(request.access_route[0] if request.access_route else request.remote_addr),
-        user_agent=request.user_agent.string[:300],
+        ip_address=(request.access_route[0] if request.access_route else (request.remote_addr or "")),
+        user_agent=(request.user_agent.string or "")[:300] if request.user_agent else "",
         details=details or {},
     )
     db.session.add(event)

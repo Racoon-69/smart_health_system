@@ -34,6 +34,11 @@ class BaseConfig:
     AUTO_CREATE_DB = False
     SEED_DEMO_DATA = False
     ALLOW_SELF_REGISTRATION = False
+    SMS_ENABLED = os.getenv("SMS_ENABLED", "false").lower() == "true"
+    SMS_PROVIDER = os.getenv("SMS_PROVIDER", "twilio")
+    SMS_FROM = os.getenv("SMS_FROM", "")
+    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
     CONTENT_SECURITY_POLICY = (
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
         "form-action 'self'; img-src 'self' data: blob:; "
@@ -63,6 +68,8 @@ class TestingConfig(BaseConfig):
     WTF_CSRF_ENABLED = False
     RATELIMIT_ENABLED = False
     SESSION_COOKIE_SECURE = False
+    SMS_ENABLED = True
+    SMS_PROVIDER = "mock"
 
 
 class ProductionConfig(BaseConfig):

@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Doctor Profile Management{% endblock %}
+{% block content %}
+<section class="admin-shell">
+  <aside class="admin-sidebar">
+    <div>
+      <span>CARE OPERATIONS</span>
+      <a href="{{ url_for('doctor_admin_dashboard') }}"><i class="bi bi-grid"></i>Overview</a>
+      <a href="{{ url_for('doctor_admin_appointments') }}"><i class="bi bi-calendar2-check"></i>Appointments</a>
+      <a href="{{ url_for('doctor_admin_chats') }}"><i class="bi bi-chat-left-text"></i>Patient messages</a>
+      <a href="{{ url_for('doctor_admin_slots') }}"><i class="bi bi-clock-history"></i>Slot status</a>
+      <a class="active" href="{{ url_for('doctor_profile_management') }}"><i class="bi bi-person-badge"></i>My Profile</a>
+      {% if current_user.role.value == 'admin' %}
+      <a href="{{ url_for('staff_directory') }}"><i class="bi bi-hospital"></i>Directory</a>
+      <a href="{{ url_for('audit_log') }}"><i class="bi bi-journal-check"></i>Audit log</a>
+      {% endif %}
+    </div>
+    <form method="post" action="{{ url_for('logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button><i class="bi bi-box-arrow-left"></i>Sign out</button>
+    </form>
+  </aside>
+  <div class="admin-content">
+    <div class="admin-title">
+      <div>
+        <span>DOCTOR PANEL</span>
+        <h1>Manage Doctor Profile</h1>
+        <p>Update your clinical details, hospital affiliation, consultation fee, and available hours.</p>
+      </div>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <form method="post" class="panel form-panel">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <h4>Clinical Information</h4>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Display Name</label>
+              <input class="form-control" name="display_name" value="{{ doctor.display_name }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Qualification</label>
+              <input class="form-control" name="qualification" value="{{ doctor.qualification or '' }}" placeholder="e.g. MD, DM Cardiology">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Hospital Affiliation</label>
+              <select class="form-select" name="hospital_id" required>
+                {% for h in hospitals %}
+                <option value="{{ h.id }}" {% if h.id == doctor.hospital_id %}selected{% endif %}>{{ h.name }} ({{ h.city }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Department / Specialty</label>
+              <select class="form-select" name="department_id" required>
+                {% for d in departments %}
+                <option value="{{ d.id }}" {% if d.id == doctor.department_id %}selected{% endif %}>{{ d.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Consultation Fee (NPR)</label>
+              <input type="number" step="0.01" min="0" class="form-control" name="consultation_fee" value="{{ doctor.consultation_fee }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Experience (Years)</label>
+              <input type="number" min="0" max="100" class="form-control" name="experience_years" value="{{ doctor.experience_years }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Available Days</label>
+              <input class="form-control" name="available_days" value="{{ doctor.available_days or '' }}" placeholder="e.g. Sun-Fri">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Available Time</label>
+              <input class="form-control" name="available_time" value="{{ doctor.available_time or '' }}" placeholder="e.g. 09:00 AM-03:00 PM">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">License Number</label>
+              <input class="form-control" name="license_number" value="{{ doctor.license_number or '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">SMS / Contact Phone</label>
+              <input class="form-control" name="sms_phone" value="{{ doctor.sms_phone or '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Professional Bio</label>
+              <textarea class="form-control" name="bio" rows="3">{{ doctor.bio or '' }}</textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary mt-4"><i class="bi bi-check-circle me-1"></i>Save Profile Changes</button>
+        </form>
+      </div>
+      <div class="col-lg-4">
+        <div class="panel">
+          <h4>Profile Summary</h4>
+          <div class="d-flex align-items-center mb-3">
+            <span class="avatar lg me-3">{{ doctor.display_name[0] }}</span>
+            <div>
+              <h5 class="mb-0">{{ doctor.display_name }}</h5>
+              <small class="text-muted">{{ doctor.specialty }}</small>
+            </div>
+          </div>
+          <hr>
+          <p><strong>Hospital:</strong> {{ doctor.hospital_name }}</p>
+          <p><strong>Consultation Fee:</strong> NPR {{ doctor.consultation_fee }}</p>
+          <p><strong>Experience:</strong> {{ doctor.experience_years }} years</p>
+          <p><strong>Schedule:</strong> {{ doctor.available_days or 'N/A' }} ({{ doctor.available_time or 'N/A' }})</p>
+          <p><strong>Verification:</strong> 
+            {% if doctor.is_verified %}
+            <span class="badge bg-success">Verified Doctor</span>
+            {% else %}
+            <span class="badge bg-secondary">Unverified</span>
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
