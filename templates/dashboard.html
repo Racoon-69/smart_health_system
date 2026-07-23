@@ -1,2 +1,174 @@
-{% extends 'base.html' %}{% block title %}Patient Dashboard{% endblock %}{% block content %}
-<section class="page-hero"><div class="container"><span class="eyebrow dark">PRIVATE WORKSPACE</span><h1>Welcome, {{ current_user.name }}</h1><p>Your records, appointments, and care conversations in one protected view.</p></div></section><div class="container page-body"><div class="row g-4 mb-5">{% for key,label,icon,color,link_url in [('hospitals','Care locations','hospital','blue', url_for('hospitals')),('doctors','Verified doctors','person-badge','green', url_for('doctors')),('appointments','My appointments','calendar2-check','purple', url_for('appointments')),('reports','My report analyses','file-medical','orange', url_for('my_reports'))] %}<div class="col-6 col-lg-3"><a href="{{ link_url }}" class="text-decoration-none text-dark"><div class="stat-card"><span class="feature-icon {{ color }}"><i class="bi bi-{{ icon }}"></i></span><div><strong>{{ counts[key] }}</strong><small>{{ label }}</small></div></div></a></div>{% endfor %}</div><div class="row g-4"><div class="col-lg-8"><div class="panel"><div class="panel-head"><h4>Recent appointments</h4><a href="{{ url_for('appointments') }}">View all</a></div><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Problem</th><th>Care team</th><th>Date</th><th>Status</th></tr></thead><tbody>{% for a in appointments %}<tr><td><strong>{{ a.disease }}</strong><small>Ref {{ a.public_id[:8] }}</small></td><td>{{ a.doctor_name }}<small>{{ a.hospital_name }}</small></td><td>{{ a.appointment_date }}<small>{{ a.appointment_time }}</small></td><td><span class="badge status-{{ a.status.value|lower|replace(' ','-') }}">{{ a.status.value }}</span></td></tr>{% else %}<tr><td colspan="4" class="empty-state">No appointments yet.</td></tr>{% endfor %}</tbody></table></div></div></div><div class="col-lg-4"><div class="panel h-100"><div class="panel-head"><h4>Recent messages</h4><a href="{{ url_for('chat') }}">Open</a></div>{% for c in chats %}<div class="activity"><span class="avatar">{{ c.doctor_name.split()[-1][0] }}</span><div><strong>{{ c.doctor_name }}</strong><small>{{ c.status }}</small><p>{{ c.message|truncate(64) }}</p></div></div>{% else %}<div class="empty-state">No conversations yet.</div>{% endfor %}</div></div></div><div class="quick-grid mt-4"><a href="{{ url_for('upload_report') }}"><i class="bi bi-file-earmark-lock"></i><span>Analyze report</span></a><a href="{{ url_for('my_reports') }}"><i class="bi bi-folder-check"></i><span>My Reports Vault</span></a><a href="{{ url_for('symptom_checker') }}"><i class="bi bi-clipboard2-pulse"></i><span>Check symptoms</span></a><a href="{{ url_for('book_appointment') }}"><i class="bi bi-calendar-plus"></i><span>Book care</span></a></div></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Patient Workspace & Emergency Dashboard{% endblock %}
+{% block content %}
+<section class="page-hero py-4 mb-3">
+  <div class="container">
+    <span class="eyebrow dark"><i class="bi bi-shield-lock-fill me-1"></i> PROTECTED PATIENT WORKSPACE</span>
+    <h1 class="fw-bold text-white mb-1">Welcome back, {{ current_user.name }}</h1>
+    <p class="lead text-white-50 mb-0">Your medical records, emergency alerts, appointments, and care team in one place.</p>
+  </div>
+</section>
+
+<div class="container page-body pb-5">
+  <!-- Prominent Emergency Alert System Box at the VERY TOP of Dashboard -->
+  <section class="emergency-action-section mb-4 rounded-4 shadow-sm overflow-hidden border border-danger-subtle bg-white">
+    <div class="p-4 border-start border-5 border-danger bg-danger-subtle bg-opacity-25">
+      <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+        <div class="d-flex align-items-start gap-3">
+          <div class="emergency-action-icon flex-shrink-0 bg-danger text-white rounded-3 p-3 text-center" style="width: 56px; height: 56px;">
+            <i class="bi bi-bell-fill fs-3"></i>
+          </div>
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge bg-danger text-white fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i>EMERGENCY ALERT SYSTEM</span>
+              <span class="badge bg-white text-danger border border-danger-subtle fw-semibold">Instant Doctor & Family SMS</span>
+            </div>
+            <h3 class="fw-bold text-dark mb-1">Need Immediate Medical Help or Emergency Check?</h3>
+            <p class="text-muted small mb-0">
+              Pressing the button below instantly dispatches an <strong>SMS Alert to your assigned Doctor and Family Member</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="d-flex flex-column flex-sm-row gap-2">
+          <form method="post" action="{{ url_for('emergency_alert') }}" class="m-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="source" value="dashboard">
+            <input type="hidden" name="category" value="dashboard emergency button">
+            <button class="btn btn-danger btn-lg rounded-pill px-4 fw-bold shadow-sm w-100" type="submit">
+              <i class="bi bi-broadcast me-2"></i>Send Emergency Alert Now
+            </button>
+          </form>
+          <a href="{{ url_for('profile') }}" class="btn btn-outline-danger btn-lg rounded-pill px-3 fw-bold w-100">
+            <i class="bi bi-gear-fill me-1"></i>Setup Contacts
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick Call & SMS Toolbar for Emergency Doctor and Family Contact -->
+      <div class="row g-2 mt-3 pt-3 border-top border-danger-subtle">
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-white border border-danger-subtle">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-person-badge text-primary fs-5"></i>
+              <div>
+                <small class="text-muted d-block lh-1">Emergency Doctor</small>
+                <strong class="text-dark small">Doctor Contact</strong>
+              </div>
+            </div>
+            <div class="d-flex gap-1">
+              <a href="tel:+9779800000002" class="btn btn-sm btn-primary rounded-pill px-2 py-1 fw-bold fs-7">
+                <i class="bi bi-telephone-fill me-1"></i>Call
+              </a>
+              <a href="sms:+9779800000002" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1 fw-bold fs-7">
+                <i class="bi bi-chat-dots-fill me-1"></i>SMS
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-between p-2 rounded-3 bg-white border border-danger-subtle">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-heart-fill text-danger fs-5"></i>
+              <div>
+                <small class="text-muted d-block lh-1">Family Emergency Contact</small>
+                <strong class="text-dark small">Family Contact</strong>
+              </div>
+            </div>
+            <div class="d-flex gap-1">
+              <a href="{{ url_for('profile') }}" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-bold fs-7">
+                <i class="bi bi-pencil-square me-1"></i>Manage Family Number
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statistics Cards -->
+  <div class="row g-4 mb-4">
+    {% for key,label,icon,color,link_url in [('hospitals','Care locations','hospital','blue', url_for('hospitals')),('doctors','Verified doctors','person-badge','green', url_for('doctors')),('appointments','My appointments','calendar2-check','purple', url_for('appointments')),('reports','My report analyses','file-medical','orange', url_for('my_reports'))] %}
+    <div class="col-6 col-lg-3">
+      <a href="{{ link_url }}" class="text-decoration-none text-dark">
+        <div class="stat-card shadow-sm border-0 rounded-4 p-3 bg-white">
+          <span class="feature-icon {{ color }}"><i class="bi bi-{{ icon }}"></i></span>
+          <div>
+            <strong class="fs-3 fw-bold">{{ counts[key] }}</strong>
+            <small class="text-muted d-block">{{ label }}</small>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Appointments & Messages Grid -->
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="panel shadow-sm border-0 rounded-4 p-4 bg-white">
+        <div class="panel-head d-flex justify-content-between align-items-center mb-3">
+          <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-calendar2-check text-primary me-2"></i>Recent Appointments</h4>
+          <a href="{{ url_for('appointments') }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">View all</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr class="table-light">
+                <th>Problem</th>
+                <th>Care team</th>
+                <th>Date & Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in appointments %}
+              <tr>
+                <td><strong>{{ a.disease }}</strong><small class="d-block text-muted">Ref: {{ a.public_id[:8] }}</small></td>
+                <td>{{ a.doctor_name }}<small class="d-block text-muted">{{ a.hospital_name }}</small></td>
+                <td>{{ a.appointment_date }}<small class="d-block text-muted">{{ a.appointment_time }}</small></td>
+                <td><span class="badge status-{{ a.status.value|lower|replace(' ','-') }}">{{ a.status.value }}</span></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="empty-state text-center py-4 text-muted">No active appointments booked yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="panel shadow-sm border-0 rounded-4 p-4 bg-white h-100">
+        <div class="panel-head d-flex justify-content-between align-items-center mb-3">
+          <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-chat-left-dots text-success me-2"></i>Care Messages</h4>
+          <a href="{{ url_for('chat') }}" class="btn btn-sm btn-outline-success rounded-pill px-3">Open Chat</a>
+        </div>
+        {% for c in chats %}
+        <div class="activity d-flex align-items-start gap-3 p-2 rounded-3 border mb-2 bg-light">
+          <span class="avatar bg-primary text-white rounded-circle d-grid place-items-center fw-bold" style="width:36px; height:36px;">
+            {{ c.doctor_name.split()[-1][0] }}
+          </span>
+          <div class="flex-grow-1">
+            <strong class="d-block text-dark">{{ c.doctor_name }}</strong>
+            <small class="badge bg-secondary mb-1">{{ c.status }}</small>
+            <p class="small text-muted mb-0">{{ c.message|truncate(54) }}</p>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state text-center py-4 text-muted">No care conversation history yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Grid -->
+  <div class="quick-grid mt-4">
+    <a href="{{ url_for('upload_report') }}"><i class="bi bi-file-earmark-lock"></i><span>Analyze report</span></a>
+    <a href="{{ url_for('my_reports') }}"><i class="bi bi-folder-check"></i><span>My Reports Vault</span></a>
+    <a href="{{ url_for('symptom_checker') }}"><i class="bi bi-clipboard2-pulse"></i><span>Check symptoms</span></a>
+    <a href="{{ url_for('book_appointment') }}"><i class="bi bi-calendar-plus"></i><span>Book care</span></a>
+  </div>
+</div>
+{% endblock %}
