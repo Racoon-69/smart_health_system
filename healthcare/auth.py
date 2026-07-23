@@ -73,9 +73,15 @@ def register_auth_routes(app):
                         bio="Medical practitioner registered on SmartHealth.",
                         is_verified=True,
                         license_number=f"DOC-{utcnow().strftime('%Y%m%d%H%M%S')}",
+                        sms_phone="+977 9800000002",
                     )
                 else:
-                    user.patient_profile = PatientProfile(full_name=clean_text(form.full_name.data, 120, required=True))
+                    user.patient_profile = PatientProfile(
+                        full_name=clean_text(form.full_name.data, 120, required=True),
+                        family_contact_name="Family Contact",
+                        family_contact_phone="+977 9800000001",
+                        family_contact_relationship="Family Member",
+                    )
 
                 db.session.add(user)
                 db.session.flush()

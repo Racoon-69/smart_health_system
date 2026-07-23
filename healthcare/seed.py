@@ -287,8 +287,11 @@ def seed_database(include_demo: bool | None = None) -> None:
             full_name="Demo Patient",
             date_of_birth=date(1998, 4, 12),
             gender="Other",
-            phone="9800000000",
+            phone="+977 9800000000",
             city="Kathmandu",
+            family_contact_name="Rita Sharma",
+            family_contact_phone="+977 9800000001",
+            family_contact_relationship="Mother",
         )
         db.session.add(patient)
     admin = db.session.scalar(select(User).where(User.email == "admin@smarthealth.com"))
@@ -319,6 +322,7 @@ def seed_database(include_demo: bool | None = None) -> None:
                 rating=rating,
                 is_verified=True,
                 license_number=f"DEMO-{len(doctors) + 1001}",
+                sms_phone="+977 9800000002",
             )
             db.session.add(profile)
         doctors.append(profile)
