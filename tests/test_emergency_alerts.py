@@ -155,3 +155,38 @@ def test_critical_report_creates_alert_and_result_guidance(client, app):
     with app.app_context():
         alert = db.session.scalar(select(EmergencyAlert).where(EmergencyAlert.source == "critical-report"))
         assert alert and alert.status == EmergencyAlertStatus.SENT
+
+
+def test_patient_can_choose_preferred_emergency_doctor(client, app):
+    with app.app_context():
+        doctors = db.session.scalars(select(DoctorProfile).where(DoctorProfile.is_active.is_(True))).all()
+        assert len(doctors) >= 1
+        chosen_doctor = doctors[-1]
+        chosen_doctor.sms_phone = "+977 9811111111"
+        db.session.commit()
+        chosen_doctor_id = chosen_doctor.id
+
+    login_patient(client)
+    
+    # Save chosen preferred doctor in profile
+    res = client.post(
+        "/profile",
+        data={
+            "full_name": "Demo Patient",
+            "preferred_doctor_id": str(chosen_doctor_id),
+            "family_contact_name": "Family Member",
+            "family_contact_phone": "+977 9800000001",
+        },
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    assert b"Profile and Emergency Contacts updated successfully." in res.data
+
+    # Verify that emergency alert uses the chosen doctor
+    with app.app_context():
+        patient = db.session.scalar(select(User).where(User.email == "patient@example.com"))
+        assert patient.patient_profile.preferred_doctor_id == chosen_doctor_id
+        from healthcare.routes import _preferred_doctor
+        pref = _preferred_doctor(patient.id)
+        assert pref.id == chosen_doctor_id
+

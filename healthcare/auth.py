@@ -7,7 +7,7 @@ from urllib.parse import urljoin, urlparse
 
 from flask import abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from .extensions import db, limiter, login_manager
 from .forms import LoginForm, ProfileForm, RegistrationForm
@@ -179,15 +179,27 @@ def register_auth_routes(app):
             flash("Sign-in failed. Check your credentials or wait if the account is temporarily locked.", "danger")
         return render_template("login.html", form=form, target_role=target_role)
 
-    @app.post("/logout")
-    @login_required
+    @app.route("/logout", methods=["GET", "POST"])
     def logout():
-        audit("account.logout", "user", current_user.public_id)
-        db.session.commit()
-        logout_user()
+        if current_user.is_authenticated:
+            db.session.execute(
+                update(UserSession)
+                .where(UserSession.user_id == current_user.id, UserSession.is_active.is_(True))
+                .values(is_active=False)
+            )
+            audit("account.logout", "user", current_user.public_id)
+            db.session.commit()
+            logout_user()
+        
         session.clear()
         flash("You have been signed out securely.", "info")
-        return redirect(url_for("index"))
+        response = redirect(url_for("login"))
+        cookie_name = current_app.config.get("REMEMBER_COOKIE_NAME", "remember_token")
+        cookie_path = current_app.config.get("REMEMBER_COOKIE_PATH", "/")
+        cookie_domain = current_app.config.get("REMEMBER_COOKIE_DOMAIN", None)
+        response.delete_cookie(cookie_name, path=cookie_path, domain=cookie_domain)
+        response.delete_cookie(current_app.config.get("SESSION_COOKIE_NAME", "session"), path=cookie_path, domain=cookie_domain)
+        return response
 
     @app.route("/profile", methods=["GET", "POST"])
     @login_required
@@ -195,7 +207,23 @@ def register_auth_routes(app):
         if current_user.role != UserRole.PATIENT:
             return redirect(url_for("doctor_admin_dashboard"))
         profile = current_user.patient_profile or PatientProfile(user=current_user, full_name=current_user.name)
+        
+        doctors = list(
+            db.session.scalars(
+                select(DoctorProfile)
+                .where(DoctorProfile.is_active.is_(True))
+                .order_by(DoctorProfile.display_name)
+            )
+        )
+        
         form = ProfileForm(obj=profile)
+        form.preferred_doctor_id.choices = [
+            (0, "-- Auto-Select Default Emergency Doctor --")
+        ] + [(d.id, f"Dr. {d.display_name} ({d.department.name} · {d.hospital.name})") for d in doctors]
+
+        if request.method == "GET":
+            form.preferred_doctor_id.data = profile.preferred_doctor_id or 0
+
         if form.validate_on_submit():
             if any(
                 value and not PHONE_RE.match(value)
@@ -204,6 +232,7 @@ def register_auth_routes(app):
                 flash("Enter a valid phone number.", "danger")
             else:
                 form.populate_obj(profile)
+                profile.preferred_doctor_id = form.preferred_doctor_id.data if form.preferred_doctor_id.data != 0 else None
                 for field in (
                     "full_name",
                     "gender",
@@ -220,12 +249,15 @@ def register_auth_routes(app):
                 db.session.add(profile)
                 audit("profile.update", "patient_profile", profile.id)
                 db.session.commit()
-                flash("Profile updated.", "success")
+                flash("Profile and Emergency Contacts updated successfully.", "success")
                 return redirect(url_for("profile"))
-        doctor = db.session.scalar(
-            select(DoctorProfile).where(DoctorProfile.is_active.is_(True)).order_by(DoctorProfile.rating.desc())
+
+        doctor = profile.preferred_doctor or (
+            db.session.scalar(
+                select(DoctorProfile).where(DoctorProfile.is_active.is_(True)).order_by(DoctorProfile.rating.desc())
+            )
         )
-        return render_template("profile.html", form=form, doctor=doctor)
+        return render_template("profile.html", form=form, doctor=doctor, available_doctors=doctors)
 
     @app.post("/account/change-password")
     @login_required

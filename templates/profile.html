@@ -126,9 +126,16 @@
 
         <hr class="my-4">
 
-        <h4 class="fw-bold mb-2 text-danger"><i class="bi bi-heart-pulse-fill me-2"></i>Configure Family Emergency Contact</h4>
-        <p class="text-muted small mb-3">Enter your family member's contact details so they receive instant SMS alerts and direct Call/SMS links in emergency situations.</p>
+        <h4 class="fw-bold mb-2 text-danger"><i class="bi bi-heart-pulse-fill me-2"></i>Configure Emergency Contacts (Doctor & Family)</h4>
+        <p class="text-muted small mb-3">Select your preferred Emergency Doctor and enter your family member's details to configure your personal emergency notification system.</p>
         
+        <div class="p-3 mb-4 bg-primary-subtle rounded-3 border border-primary-subtle">
+          <label class="form-label fw-bold text-dark"><i class="bi bi-person-badge-fill text-primary me-1"></i>Select Emergency Doctor Contact</label>
+          {{ form.preferred_doctor_id(class='form-select form-select-lg border-2') }}
+          <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>Choose which doctor will receive instant SMS alerts and appear on your Emergency Call & SMS toolbar.</small>
+          {% for error in form.preferred_doctor_id.errors %}<small class="text-danger d-block mt-1">{{ error }}</small>{% endfor %}
+        </div>
+
         <div class="row g-3 mb-4 p-3 bg-danger-subtle rounded-3 border border-danger-subtle">
           <div class="col-md-6">
             {{ form.family_contact_name.label(class='form-label fw-bold text-dark') }}

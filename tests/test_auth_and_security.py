@@ -68,3 +68,32 @@ def test_registration_minimum_password_length(client):
         follow_redirects=True,
     )
     assert b"Your private patient account is ready." in res_valid.data
+
+
+def test_patient_logout_clears_session_and_redirects_to_login(app, client):
+    # Perform login
+    client.post("/login", data={"email": "patient@example.com", "password": "DemoPatient!2026"})
+    
+    # Verify user is authenticated
+    dashboard_res = client.get("/dashboard")
+    assert dashboard_res.status_code == 200
+
+    # Perform logout
+    logout_res = client.post("/logout", follow_redirects=True)
+    assert logout_res.status_code == 200
+    assert b"You have been signed out securely." in logout_res.data
+    assert b"Patient Sign In" in logout_res.data
+
+    # Verify protected route now redirects to login
+    protected_res = client.get("/dashboard")
+    assert protected_res.status_code == 302
+    assert "/login" in protected_res.location
+
+    # Verify UserSession is_active is False in DB
+    with app.app_context():
+        from healthcare.models import UserSession, User
+        user = db.session.scalar(db.select(User).where(User.email == "patient@example.com"))
+        session_rec = db.session.scalar(db.select(UserSession).where(UserSession.user_id == user.id))
+        if session_rec:
+            assert session_rec.is_active is False
+

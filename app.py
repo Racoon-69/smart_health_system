@@ -5,6 +5,9 @@ Production: ``gunicorn --bind 0.0.0.0:8000 'app:app'``
 """
 
 import os
+import warnings
+
+warnings.filterwarnings("ignore", message=".*Eventlet is deprecated.*")
 
 from healthcare import create_app
 

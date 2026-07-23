@@ -76,23 +76,33 @@ def _conversation_view(conversation: Conversation):
 
 
 def _preferred_doctor(patient_id: int) -> DoctorProfile | None:
-    conversation = db.session.scalar(
-        select(Conversation)
-        .where(Conversation.patient_id == patient_id)
-        .order_by(Conversation.updated_at.desc())
-    )
-    if conversation and conversation.doctor and conversation.doctor.is_active:
-        doctor = conversation.doctor
+    from .models import User
+    patient = db.session.get(User, patient_id)
+    if (
+        patient
+        and patient.patient_profile
+        and patient.patient_profile.preferred_doctor
+        and patient.patient_profile.preferred_doctor.is_active
+    ):
+        doctor = patient.patient_profile.preferred_doctor
     else:
-        appointment = db.session.scalar(
-            select(Appointment)
-            .where(Appointment.patient_id == patient_id, Appointment.status == AppointmentStatus.BOOKED)
-            .order_by(Appointment.created_at.desc())
+        conversation = db.session.scalar(
+            select(Conversation)
+            .where(Conversation.patient_id == patient_id)
+            .order_by(Conversation.updated_at.desc())
         )
-        if appointment and appointment.doctor and appointment.doctor.is_active:
-            doctor = appointment.doctor
+        if conversation and conversation.doctor and conversation.doctor.is_active:
+            doctor = conversation.doctor
         else:
-            doctor = db.session.scalar(select(DoctorProfile).where(DoctorProfile.is_active.is_(True)))
+            appointment = db.session.scalar(
+                select(Appointment)
+                .where(Appointment.patient_id == patient_id, Appointment.status == AppointmentStatus.BOOKED)
+                .order_by(Appointment.created_at.desc())
+            )
+            if appointment and appointment.doctor and appointment.doctor.is_active:
+                doctor = appointment.doctor
+            else:
+                doctor = db.session.scalar(select(DoctorProfile).where(DoctorProfile.is_active.is_(True)))
     if doctor and not doctor.sms_phone:
         doctor.sms_phone = "+977 9800000002"
         db.session.commit()
@@ -251,11 +261,13 @@ def register_public_routes(app):
                 select(func.count()).select_from(ReportAnalysis).where(ReportAnalysis.patient_id == current_user.id)
             ),
         }
+        doctor = _preferred_doctor(current_user.id)
         return render_template(
             "dashboard.html",
             counts=counts,
             appointments=appointments,
             chats=[_conversation_view(c) for c in conversations],
+            doctor=doctor,
         )
 
     @app.route("/upload-report", methods=["GET", "POST"])

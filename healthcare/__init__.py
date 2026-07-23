@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore", message=".*Eventlet is deprecated.*")
 
 from dotenv import load_dotenv
 from flask import Flask, render_template, request
@@ -55,12 +58,12 @@ def create_app(config_name: str | None = None, test_config: dict | None = None) 
     register_error_handlers(app)
     register_security_headers(app)
 
-    if app.config.get("AUTO_CREATE_DB"):
-        with app.app_context():
+    with app.app_context():
+        _ensure_schema_columns(db)
+        if app.config.get("AUTO_CREATE_DB"):
             from .seed import seed_database
 
             db.create_all()
-            _ensure_schema_columns(db)
             seed_database()
     return app
 

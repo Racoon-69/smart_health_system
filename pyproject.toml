@@ -2,6 +2,10 @@
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore:.*Eventlet is deprecated.*",
+]
 
 [tool.ruff]
 target-version = "py311"

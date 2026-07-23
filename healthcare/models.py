@@ -155,10 +155,12 @@ class PatientProfile(TimestampMixin, db.Model):
     family_contact_name: Mapped[str | None] = mapped_column(String(120))
     family_contact_phone: Mapped[str | None] = mapped_column(String(30))
     family_contact_relationship: Mapped[str | None] = mapped_column(String(60))
+    preferred_doctor_id: Mapped[int | None] = mapped_column(ForeignKey("doctor_profiles.id", ondelete="SET NULL"))
     medical_conditions: Mapped[str | None] = mapped_column(Text)
     allergies: Mapped[str | None] = mapped_column(Text)
     current_medications: Mapped[str | None] = mapped_column(Text)
     user: Mapped[User] = relationship(back_populates="patient_profile")
+    preferred_doctor: Mapped["DoctorProfile | None"] = relationship(foreign_keys=[preferred_doctor_id])
 
     @property
     def age(self) -> int | None:

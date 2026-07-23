@@ -34,6 +34,7 @@ class ProfileForm(FlaskForm):
     family_contact_name = StringField("Family contact name", validators=[Optional(), Length(max=120)])
     family_contact_phone = StringField("Family contact phone", validators=[Optional(), Length(max=30)])
     family_contact_relationship = StringField("Relationship", validators=[Optional(), Length(max=60)])
+    preferred_doctor_id = SelectField("Emergency Doctor Contact", coerce=int, validators=[Optional()], default=0)
     medical_conditions = TextAreaField("Existing conditions", validators=[Optional(), Length(max=2000)])
     allergies = TextAreaField("Allergies", validators=[Optional(), Length(max=2000)])
     current_medications = TextAreaField("Current medications", validators=[Optional(), Length(max=2000)])
