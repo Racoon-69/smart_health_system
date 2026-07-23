@@ -12,13 +12,10 @@ from .health_rules import analyze_text, EMERGENCY_KEYWORDS, DISEASES
 # NLP Intent RegEx Patterns
 GREETING_RE = re.compile(r"\b(hi|hello|hey|greetings|good morning|good afternoon|good evening|namaste)\b", re.IGNORECASE)
 HELP_RE = re.compile(r"\b(help|support|info|what can you do|features|guide)\b", re.IGNORECASE)
-FEVER_RE = re.compile(r"\b(fever|temperature|chills|cold|flu|infection|cough)\b", re.IGNORECASE)
-PAIN_RE = re.compile(r"\b(pain|ache|sore|hurt|burning|discomfort)\b", re.IGNORECASE)
-DIET_RE = re.compile(r"\b(diet|food|eat|nutrition|drink|avoid)\b", re.IGNORECASE)
 
 
 def _call_gemini_api(prompt: str, api_key: str) -> str | None:
-    """Call Google Gemini REST API directly for real-time generative AI responses."""
+    """Call Google Gemini / Antigravity REST API directly for real-time generative AI responses."""
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         payload = {
@@ -27,10 +24,11 @@ def _call_gemini_api(prompt: str, api_key: str) -> str | None:
                     "parts": [
                         {
                             "text": (
-                                "You are an intelligent, empathetic medical AI assistant for Smart Health System. "
-                                "Provide clear, accurate, multi-paragraph educational health responses. "
-                                "Include symptom guidance, lifestyle tips, when to see a doctor, and emergency warnings if needed. "
-                                f"User query: {prompt}"
+                                "You are Antigravity AI Assistant for Smart Health System. "
+                                "Answer the user's question directly, accurately, and naturally. "
+                                "You can answer ANY question (general knowledge, science, tech, daily life, study, or health). "
+                                "Only include medical advice/guidance if the user specifically asks about health or symptoms. "
+                                f"User Question: {prompt}"
                             )
                         }
                     ]
@@ -39,7 +37,7 @@ def _call_gemini_api(prompt: str, api_key: str) -> str | None:
         }
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=8) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             res_json = json.loads(response.read().decode("utf-8"))
             candidates = res_json.get("candidates", [])
             if candidates:
@@ -47,17 +45,17 @@ def _call_gemini_api(prompt: str, api_key: str) -> str | None:
                 if parts:
                     return parts[0].get("text", "").strip()
     except Exception as exc:
-        print(f"Gemini API Call Exception: {exc}")
+        print(f"[Antigravity AI Engine] API Call Exception: {exc}")
     return None
 
 
 def bot_reply(message: str) -> str:
-    """Real-time intelligent AI response generator for general health questions and symptoms."""
+    """Real-time intelligent AI response generator for general questions, symptoms, and health guidance."""
     text = (message or "").strip()
     if not text:
-        return "Please describe your health query or symptoms so I can assist you."
+        return "Please ask any question or describe your symptoms so I can assist you."
 
-    # 1. Try real-time LLM API if key is set in environment
+    # 1. Try real-time LLM API if key is set in environment (Answers ANY question)
     api_key = (
         os.getenv("ANTIGRAVITY_API_KEY")
         or os.getenv("GEMINI_API_KEY")
@@ -72,23 +70,24 @@ def bot_reply(message: str) -> str:
     # 2. Greeting Handling
     if GREETING_RE.search(text) and len(text.split()) <= 4:
         return (
-            "Hello! I am your Smart Health Assistant. I am here to help you understand your symptoms, "
+            "Hello! I am your Smart Health Assistant. I am here to answer your questions, help you understand symptoms, "
             "review hospital reports, and suggest lifestyle recommendations.\n\n"
-            "How are you feeling today? Please describe any symptoms or questions you have."
+            "How can I help you today? Feel free to ask any question."
         )
 
-    # 3. Help Inquiry
+    # 3. Help / Features Inquiry
     if HELP_RE.search(text) and len(text.split()) <= 4:
         return (
-            "I am equipped to provide comprehensive health guidance!\n\n"
+            "I am equipped to assist you with a wide variety of topics!\n\n"
+            "• General Knowledge & Conversation\n"
             "• Symptom Analysis & Risk Evaluation\n"
             "• Medical Report & Lab Result Summaries\n"
             "• Diet, Exercise & Care Recommendations\n"
             "• Specialist & Hospital Matching\n\n"
-            "Feel free to type your health concern or upload a medical document."
+            "Feel free to type any question or upload a document."
         )
 
-    # 4. Perform Advanced Health Analysis
+    # 4. Perform Advanced NLP & Health Analysis
     analysis = analyze_text(text)
     profile = analysis["profile"]
     matched_keywords = analysis["keywords"]
@@ -106,8 +105,17 @@ def bot_reply(message: str) -> str:
             "3. If you are experiencing chest pain, severe shortness of breath, sudden numbness, or heavy bleeding, seek emergency care right away."
         )
 
-    # Build rich conversational response
-    matched_str = ", ".join(matched_keywords) if matched_keywords else "reported health symptoms"
+    # 5. Non-medical / General Question handling when no health symptoms match
+    if not matched_keywords:
+        return (
+            f"✨ Antigravity AI Engine\n\n"
+            f"Regarding your query: \"{text}\"\n\n"
+            "I am your Antigravity AI Assistant. I can answer general knowledge questions, technology topics, daily advice, as well as health queries!\n\n"
+            "If you have a specific health symptom or lab report you'd like analyzed, please mention your symptoms (e.g., fever, headache, high blood pressure) or upload a report file."
+        )
+
+    # 6. Health & Symptom Query Response
+    matched_str = ", ".join(matched_keywords)
     care_steps = "\n".join([f"  • {item}" for item in profile["care"]])
     diet_steps = "\n".join([f"  • {item}" for item in profile["diet"]])
     warnings = "\n".join([f"  • {item}" for item in profile["warnings"]])
@@ -130,10 +138,15 @@ def report_chat_reply(report_text: str, question: str) -> str:
     combined = f"{report_text}\n{question}"
     
     # 1. Try real-time LLM API if key is set in environment
-    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY")
-    if gemini_key:
+    api_key = (
+        os.getenv("ANTIGRAVITY_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("LLM_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+    )
+    if api_key:
         prompt = f"Medical Report Extracted Text:\n{report_text}\n\nUser Question: {question}"
-        llm_response = _call_gemini_api(prompt, gemini_key)
+        llm_response = _call_gemini_api(prompt, api_key)
         if llm_response:
             return llm_response
 
