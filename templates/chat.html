@@ -120,76 +120,63 @@
     </div>
   </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
-// Multilingual dictionary and translation dictionary
-const nepaliDict = {
-  "Automated educational guidance": "स्वचालित शैक्षिक मार्गदर्शन",
-  "Clinician reply": "डाक्टरको उत्तर",
-  "Start a conversation": "कुराकानी सुरु गर्नुहोस्",
-  "Fever": "ज्वरो",
-  "Cough": "खोकी",
-  "Headache": "टाउको दुख्ने",
-  "Chest pain": "छाती दुख्ने",
-  "Stomach ache": "पेट दुख्ने",
-  "Please consult a doctor": "कृपया डाक्टरसँग परामर्श लिनुहोस्",
-  "Emergency": "आकास्मिक",
-  "You": "तपाईं",
-  "Doctor": "डाक्टर"
-};
-
-function translateTextToNepali(str) {
-  if (!str) return str;
-  let translated = str;
-  
-  // Replace key terms
-  translated = translated.replace(/automated educational guidance/gi, "स्वचालित शैक्षिक मार्गदर्शन")
-                         .replace(/please consult a doctor/gi, "कृपया डाक्टरसँग परामर्श लिनुहोस्")
-                         .replace(/seek immediate medical attention/gi, "तुरुन्तै डाक्टरलाई देखाउनुहोस्")
-                         .replace(/fever/gi, "ज्वरो (Fever)")
-                         .replace(/cough/gi, "खोकी (Cough)")
-                         .replace(/headache/gi, "टाउको दुख्ने (Headache)")
-                         .replace(/chest pain/gi, "छाती दुख्ने (Chest pain)")
-                         .replace(/stomach ache/gi, "पेट दुख्ने (Stomach ache)")
-                         .replace(/doctor/gi, "डाक्टर")
-                         .replace(/hospital/gi, "अस्पताल")
-                         .replace(/appointment/gi, "अपोइन्टमेन्ट");
-
-  // Add translated suffix badge if not present
-  if (!translated.includes("🇳🇵")) {
-    translated = "🇳🇵 " + translated;
+async function fetchTranslation(text, targetLang) {
+  if (!text || !text.trim()) return text;
+  if (targetLang === 'en') return text;
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data && data[0]) {
+      return data[0].map(s => s[0]).join('');
+    }
+  } catch (err) {
+    console.error('Translation error:', err);
   }
-  return translated;
+  return text;
 }
 
-function translateAllChatBubbles(lang) {
-  const texts = document.querySelectorAll('.chat-text');
-  texts.forEach(el => {
+async function translateAllChatBubbles(lang) {
+  const elements = document.querySelectorAll('.chat-text');
+  for (const el of elements) {
     const original = el.getAttribute('data-original');
     if (lang === 'ne') {
-      el.innerText = translateTextToNepali(original);
+      el.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> <small>अनुवाद गर्दैछ (Translating...)</small>';
+      const translated = await fetchTranslation(original, 'ne');
+      el.innerText = "🇳🇵 " + translated;
+      el.setAttribute('data-translated', 'true');
     } else {
       el.innerText = original;
+      el.setAttribute('data-translated', 'false');
     }
-  });
-}
-
-function toggleBubbleTranslation(btn) {
-  const p = btn.previousElementSibling;
-  const original = p.getAttribute('data-original');
-  const label = btn.querySelector('.btn-label');
-  
-  if (p.innerText === original) {
-    p.innerText = translateTextToNepali(original);
-    if (label) label.innerText = "मूल भाषा (Show Original)";
-  } else {
-    p.innerText = original;
-    if (label) label.innerText = "अनुवाद (Translate)";
   }
 }
 
-// Default translate on load if Nepali selected
+async function toggleBubbleTranslation(btn) {
+  const parent = btn.closest('.bubble');
+  if (!parent) return;
+  const p = parent.querySelector('.chat-text');
+  if (!p) return;
+  const original = p.getAttribute('data-original');
+  const label = btn.querySelector('.btn-label');
+
+  if (p.getAttribute('data-translated') === 'true') {
+    p.innerText = original;
+    p.setAttribute('data-translated', 'false');
+    if (label) label.innerText = "अनुवाद (Translate)";
+  } else {
+    p.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> <small>अनुवाद गर्दैछ...</small>';
+    const translated = await fetchTranslation(original, 'ne');
+    p.innerText = "🇳🇵 " + translated;
+    p.setAttribute('data-translated', 'true');
+    if (label) label.innerText = "मूल भाषा (Show Original)";
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const select = document.getElementById('chatLangSelect');
   if (select && select.value === 'ne') {
@@ -197,5 +184,4 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
-{% endblock %}
 {% endblock %}
