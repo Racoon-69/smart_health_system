@@ -44,7 +44,7 @@ class BaseConfig:
         "form-action 'self'; img-src 'self' data: blob:; "
         "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
         "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
         "connect-src 'self' https://cdn.jsdelivr.net https://translate.googleapis.com https://generativelanguage.googleapis.com"
     )
 
