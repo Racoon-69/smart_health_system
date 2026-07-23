@@ -685,7 +685,7 @@ def register_public_routes(app):
                 flash(str(exc), "danger")
         conversations = list(db.session.scalars(
             select(AIConversation).where(AIConversation.patient_id == current_user.id)
-            .order_by(AIConversation.updated_at.desc())
+            .order_by(AIConversation.created_at.asc())
         ))
         return render_template("ai_chat.html", conversations=conversations)
 

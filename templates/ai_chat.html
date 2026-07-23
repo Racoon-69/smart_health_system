@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}AI Health Assistant · Instant Guidance{% endblock %}
+{% block title %}Antigravity AI Health Assistant · Instant Guidance{% endblock %}
 {% block content %}
 <section class="page-hero compact py-4 mb-4">
   <div class="container">
@@ -61,7 +61,7 @@
               </div>
             {% endfor %}
           {% else %}
-            <div class="empty-state text-center py-5">
+            <div class="empty-state text-center py-5" id="aiEmptyState">
               <i class="bi bi-robot display-4 text-muted mb-3 d-block"></i>
               <h4 class="fw-bold">Start a private AI conversation</h4>
               <p class="text-muted">Ask about symptoms or upload a medical report to understand health terms.</p>
@@ -69,15 +69,15 @@
           {% endfor %}
         </div>
 
-        <form method="post" action="{{ url_for('ai_chat') }}" enctype="multipart/form-data" class="chat-compose p-3 border-top bg-white rounded-bottom-4">
+        <form method="post" action="{{ url_for('ai_chat') }}" enctype="multipart/form-data" id="aiChatForm" class="chat-compose p-3 border-top bg-white rounded-bottom-4">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="mb-2">
             <label class="form-label small mb-1 fw-bold text-muted" for="reportFile">Attach Medical Report (PDF or TXT, max 8 MB)</label>
             <input class="form-control form-control-sm border-2" type="file" name="report_file" id="reportFile" accept=".pdf,.txt">
           </div>
           <div class="input-group">
-            <textarea class="form-control border-2" name="message" maxlength="3000" rows="2" placeholder="Ask a question about your symptoms or uploaded report..."></textarea>
-            <button class="btn btn-primary px-4 fw-bold" type="submit" aria-label="Ask AI">
+            <textarea class="form-control border-2" name="message" id="aiMessageInput" maxlength="3000" rows="2" placeholder="Ask a question about your symptoms or uploaded report..."></textarea>
+            <button class="btn btn-primary px-4 fw-bold" type="submit" id="aiSubmitBtn" aria-label="Ask AI">
               <i class="bi bi-send me-1"></i>Ask AI
             </button>
           </div>
@@ -174,6 +174,47 @@ document.addEventListener('DOMContentLoaded', function() {
   const chatBody = document.getElementById('aiChatBody');
   if (chatBody) {
     chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  const aiForm = document.getElementById('aiChatForm');
+  const aiSubmitBtn = document.getElementById('aiSubmitBtn');
+  const aiMessageInput = document.getElementById('aiMessageInput');
+  const aiEmptyState = document.getElementById('aiEmptyState');
+
+  if (aiForm) {
+    aiForm.addEventListener('submit', function() {
+      if (aiSubmitBtn) {
+        aiSubmitBtn.disabled = true;
+        aiSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+      }
+      const text = (aiMessageInput ? aiMessageInput.value : '').trim();
+      if (text && chatBody) {
+        if (aiEmptyState) aiEmptyState.style.display = 'none';
+        const userDiv = document.createElement('div');
+        userDiv.className = 'bubble-row patient d-flex gap-2 mb-3';
+        userDiv.innerHTML = `
+          <div class="bubble p-3 rounded-4 bg-primary text-white ms-auto" style="max-width: 85%;">
+            <small class="d-block opacity-75 mb-1">You</small>
+            <p class="mb-1 ai-chat-text" style="white-space: pre-line;">${text}</p>
+          </div>
+        `;
+        chatBody.appendChild(userDiv);
+
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.className = 'bubble-row bot d-flex gap-2 mb-3';
+        thinkingDiv.innerHTML = `
+          <span class="bubble-avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 38px; height: 38px;">
+            <i class="bi bi-robot fs-5"></i>
+          </span>
+          <div class="bubble p-3 rounded-4 bg-light text-dark border" style="max-width: 85%;">
+            <small class="d-block text-primary fw-bold mb-1">Antigravity AI Engine</small>
+            <p class="mb-0 text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Generating real-time response...</p>
+          </div>
+        `;
+        chatBody.appendChild(thinkingDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+    });
   }
 });
 </script>
