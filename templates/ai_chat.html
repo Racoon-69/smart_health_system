@@ -53,7 +53,7 @@
                   <small class="d-block {{ 'opacity-75' if message.sender_role == 'patient' else 'text-primary fw-bold' }} mb-1">
                     {{ 'You' if message.sender_role == 'patient' else 'AI Educational Feedback' }}
                   </small>
-                  <p class="mb-1 ai-chat-text" data-original="{{ message.body }}">{{ message.body }}</p>
+                  <p class="mb-1 ai-chat-text" style="white-space: pre-line;" data-original="{{ message.body }}">{{ message.body }}</p>
                   <button type="button" class="btn btn-sm btn-link {{ 'text-white-50' if message.sender_role == 'patient' else 'text-primary' }} p-0 text-decoration-none small" onclick="toggleAiBubbleTranslation(this)">
                     <i class="bi bi-translate me-1"></i><span class="btn-label">अनुवाद (Translate)</span>
                   </button>
