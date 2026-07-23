@@ -40,16 +40,19 @@ def register_auth_routes(app):
             return redirect(url_for("dashboard"))
         
         target_role = request.args.get("role", "patient")
+        if target_role not in {"patient", "doctor"}:
+            target_role = "patient"
+        
         form = RegistrationForm()
-        if request.method == "GET" and target_role in {"patient", "doctor"}:
+        if not form.account_type.data and target_role in {"patient", "doctor"}:
             form.account_type.data = target_role
 
         if form.validate_on_submit():
             email = form.email.data.strip().lower()
             if db.session.scalar(select(User).where(func.lower(User.email) == email)):
-                flash("An account with that email already exists.", "warning")
+                flash("An account with that email already exists. Please sign in instead.", "warning")
             else:
-                account_type = form.account_type.data
+                account_type = form.account_type.data or request.form.get("account_type") or target_role or "patient"
                 is_doctor = account_type == "doctor"
                 role = UserRole.DOCTOR if is_doctor else UserRole.PATIENT
                 user = User(email=email, role=role, email_verified=True)

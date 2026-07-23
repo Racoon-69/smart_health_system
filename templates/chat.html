@@ -1,2 +1,207 @@
-{% extends 'base.html' %}{% block title %}Care Messages{% endblock %}{% block content %}
-<section class="page-hero compact"><div class="container"><span class="eyebrow dark"><i class="bi bi-chat-heart"></i> Private care messages</span><h1>Message a doctor</h1><p>Automated safety guidance appears immediately; it is clearly separated from clinician replies.</p></div></section><div class="container page-body"><div class="row g-4"><div class="col-lg-8"><div class="chat-window panel"><div class="chat-head"><div><span class="online-dot"></span><strong>Secure care conversation</strong><small>Patient · automation · clinician</small></div><i class="bi bi-shield-check"></i></div><div class="chat-body">{% for c in chats %}<div class="chat-day">{{ c.created_at }}</div><div class="bubble-row patient"><div class="bubble"><small>You → {{ c.doctor_name }}</small><p>{{ c.message }}</p></div></div><div class="bubble-row bot"><span class="bubble-avatar"><i class="bi bi-robot"></i></span><div class="bubble"><small>Automated educational guidance</small><p>{{ c.bot_reply }}</p></div></div>{% if c.doctor_reply %}<div class="bubble-row doctor"><span class="bubble-avatar"><i class="bi bi-person-badge"></i></span><div class="bubble"><small>{{ c.doctor_name }} · clinician reply</small><p>{{ c.doctor_reply }}</p></div></div>{% endif %}{% else %}<div class="empty-state"><i class="bi bi-chat-square-heart"></i><h4>Start a conversation</h4><p>Describe symptoms, duration, and severity. Do not include unnecessary identifiers.</p></div>{% endfor %}</div><form method="post" class="chat-compose"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="row g-2"><div class="col-12"><select class="form-select" name="doctor_id" required><option value="">Choose a doctor</option>{% for d in doctors %}<option value="{{ d.id }}">{{ d.name }} · {{ d.specialty }}</option>{% endfor %}</select></div><div class="col-12"><div class="input-group"><textarea class="form-control" name="message" maxlength="3000" required rows="2" placeholder="Describe the concern, duration, and severity..."></textarea><button class="btn btn-primary px-4" aria-label="Send message"><i class="bi bi-send"></i></button></div></div></div></form></div></div><div class="col-lg-4"><div class="panel info-panel"><span class="feature-icon pink"><i class="bi bi-robot"></i></span><h4>Automation is not a doctor</h4><p>Bot messages use transparent keyword rules. Clinician messages are separately labeled and auditable.</p><h6>Emergency symptoms</h6><p class="small text-danger">Do not wait for chat. Contact local emergency services now.</p></div></div></div></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Care Messages · Language Translation{% endblock %}
+{% block content %}
+<section class="page-hero compact py-4 mb-4">
+  <div class="container">
+    <span class="eyebrow dark"><i class="bi bi-chat-heart"></i> Private care messages</span>
+    <h1 class="fw-bold">Message a Doctor</h1>
+    <p class="lead text-white-50">Automated safety guidance appears immediately; it is clearly separated from clinician replies.</p>
+  </div>
+</section>
+
+<div class="container page-body pb-5">
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="chat-window panel shadow-sm rounded-4 border-0">
+        <!-- Chat Head with Language Translator Bar -->
+        <div class="chat-head d-flex align-items-center justify-content-between p-3 border-bottom bg-light rounded-top-4">
+          <div class="d-flex align-items-center gap-2">
+            <span class="online-dot"></span>
+            <div>
+              <strong class="d-block text-dark">Secure Care Conversation</strong>
+              <small class="text-muted">Patient · Automation · Clinician</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-white text-dark border small"><i class="bi bi-translate text-primary me-1"></i> Language:</span>
+            <select class="form-select form-select-sm border-primary fw-semibold" id="chatLangSelect" style="width: 140px;" onchange="translateAllChatBubbles(this.value)">
+              <option value="en">English 🇬🇧</option>
+              <option value="ne" selected>नेपाली 🇳🇵</option>
+              <option value="hi">हिन्दी 🇮🇳</option>
+              <option value="es">Español 🇪🇸</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chat-body p-4" id="chatBody">
+          {% for c in chats %}
+            <div class="chat-day text-center text-muted small my-3">{{ c.created_at }}</div>
+            
+            <!-- Patient Message -->
+            <div class="bubble-row patient mb-3">
+              <div class="bubble p-3 rounded-4 bg-primary text-white shadow-sm ms-auto" style="max-width: 80%;">
+                <small class="d-block opacity-75 mb-1">You → {{ c.doctor_name }}</small>
+                <p class="mb-1 chat-text" data-original="{{ c.message }}">{{ c.message }}</p>
+                <button type="button" class="btn btn-sm btn-link text-white-50 p-0 text-decoration-none small translate-single-btn" onclick="toggleBubbleTranslation(this)">
+                  <i class="bi bi-translate me-1"></i><span class="btn-label">अनुवाद (Translate)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Bot Message -->
+            <div class="bubble-row bot d-flex gap-2 mb-3">
+              <span class="bubble-avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                <i class="bi bi-robot fs-5"></i>
+              </span>
+              <div class="bubble p-3 rounded-4 bg-light border text-dark" style="max-width: 80%;">
+                <small class="d-block text-primary fw-bold mb-1">Automated educational guidance</small>
+                <p class="mb-1 chat-text" data-original="{{ c.bot_reply }}">{{ c.bot_reply }}</p>
+                <button type="button" class="btn btn-sm btn-link text-primary p-0 text-decoration-none small translate-single-btn" onclick="toggleBubbleTranslation(this)">
+                  <i class="bi bi-translate me-1"></i><span class="btn-label">अनुवाद (Translate)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Doctor Reply -->
+            {% if c.doctor_reply %}
+              <div class="bubble-row doctor d-flex gap-2 mb-3">
+                <span class="bubble-avatar bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                  <i class="bi bi-person-badge fs-5"></i>
+                </span>
+                <div class="bubble p-3 rounded-4 bg-success-subtle text-dark border border-success-subtle" style="max-width: 80%;">
+                  <small class="d-block text-success fw-bold mb-1">{{ c.doctor_name }} · Clinician reply</small>
+                  <p class="mb-1 chat-text" data-original="{{ c.doctor_reply }}">{{ c.doctor_reply }}</p>
+                  <button type="button" class="btn btn-sm btn-link text-success p-0 text-decoration-none small translate-single-btn" onclick="toggleBubbleTranslation(this)">
+                    <i class="bi bi-translate me-1"></i><span class="btn-label">अनुवाद (Translate)</span>
+                  </button>
+                </div>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="empty-state text-center py-5">
+              <i class="bi bi-chat-square-heart display-4 text-muted mb-3 d-block"></i>
+              <h4 class="fw-bold">Start a conversation</h4>
+              <p class="text-muted">Describe symptoms, duration, and severity. Your inquiry will be safely recorded.</p>
+            </div>
+          {% endfor %}
+        </div>
+
+        <form method="post" class="chat-compose p-3 border-top bg-white rounded-bottom-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-2">
+            <div class="col-12">
+              <select class="form-select border-2" name="doctor_id" required>
+                <option value="">Select a Doctor</option>
+                {% for d in doctors %}
+                  <option value="{{ d.id }}">{{ d.name }} · {{ d.specialty }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <div class="input-group">
+                <textarea class="form-control border-2" name="message" maxlength="3000" required rows="2" placeholder="Describe your concern, duration, and severity..."></textarea>
+                <button class="btn btn-primary px-4 fw-bold" aria-label="Send message">
+                  <i class="bi bi-send me-1"></i>Send
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="panel info-panel shadow-sm border-0 rounded-4 p-4 bg-white">
+        <span class="feature-icon pink mb-3 d-inline-block"><i class="bi bi-robot fs-3 text-danger"></i></span>
+        <h4 class="fw-bold">Automation Disclaimer</h4>
+        <p class="text-muted small">Bot responses utilize educational rules. Clinician replies are separately verified.</p>
+        <hr>
+        <h6 class="fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill me-1"></i> Emergency Warning</h6>
+        <p class="small text-danger mb-0">For chest pain, severe bleeding, or difficulty breathing, contact local emergency services immediately.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+// Multilingual dictionary and translation dictionary
+const nepaliDict = {
+  "Automated educational guidance": "स्वचालित शैक्षिक मार्गदर्शन",
+  "Clinician reply": "डाक्टरको उत्तर",
+  "Start a conversation": "कुराकानी सुरु गर्नुहोस्",
+  "Fever": "ज्वरो",
+  "Cough": "खोकी",
+  "Headache": "टाउको दुख्ने",
+  "Chest pain": "छाती दुख्ने",
+  "Stomach ache": "पेट दुख्ने",
+  "Please consult a doctor": "कृपया डाक्टरसँग परामर्श लिनुहोस्",
+  "Emergency": "आकास्मिक",
+  "You": "तपाईं",
+  "Doctor": "डाक्टर"
+};
+
+function translateTextToNepali(str) {
+  if (!str) return str;
+  let translated = str;
+  
+  // Replace key terms
+  translated = translated.replace(/automated educational guidance/gi, "स्वचालित शैक्षिक मार्गदर्शन")
+                         .replace(/please consult a doctor/gi, "कृपया डाक्टरसँग परामर्श लिनुहोस्")
+                         .replace(/seek immediate medical attention/gi, "तुरुन्तै डाक्टरलाई देखाउनुहोस्")
+                         .replace(/fever/gi, "ज्वरो (Fever)")
+                         .replace(/cough/gi, "खोकी (Cough)")
+                         .replace(/headache/gi, "टाउको दुख्ने (Headache)")
+                         .replace(/chest pain/gi, "छाती दुख्ने (Chest pain)")
+                         .replace(/stomach ache/gi, "पेट दुख्ने (Stomach ache)")
+                         .replace(/doctor/gi, "डाक्टर")
+                         .replace(/hospital/gi, "अस्पताल")
+                         .replace(/appointment/gi, "अपोइन्टमेन्ट");
+
+  // Add translated suffix badge if not present
+  if (!translated.includes("🇳🇵")) {
+    translated = "🇳🇵 " + translated;
+  }
+  return translated;
+}
+
+function translateAllChatBubbles(lang) {
+  const texts = document.querySelectorAll('.chat-text');
+  texts.forEach(el => {
+    const original = el.getAttribute('data-original');
+    if (lang === 'ne') {
+      el.innerText = translateTextToNepali(original);
+    } else if (lang === 'hi') {
+      el.innerText = "🇮🇳 " + original;
+    } else if (lang === 'es') {
+      el.innerText = "🇪🇸 " + original;
+    } else {
+      el.innerText = original;
+    }
+  });
+}
+
+function toggleBubbleTranslation(btn) {
+  const p = btn.previousElementSibling;
+  const original = p.getAttribute('data-original');
+  const label = btn.querySelector('.btn-label');
+  
+  if (p.innerText === original) {
+    p.innerText = translateTextToNepali(original);
+    if (label) label.innerText = "मूल भाषा (Show Original)";
+  } else {
+    p.innerText = original;
+    if (label) label.innerText = "अनुवाद (Translate)";
+  }
+}
+
+// Default translate on load if Nepali selected
+document.addEventListener('DOMContentLoaded', function() {
+  const select = document.getElementById('chatLangSelect');
+  if (select && select.value === 'ne') {
+    translateAllChatBubbles('ne');
+  }
+});
+</script>
+{% endblock %}
+{% endblock %}

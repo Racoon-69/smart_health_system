@@ -1,6 +1,158 @@
 {% extends 'base.html' %}
-{% block title %}AI Health Assistant{% endblock %}
+{% block title %}AI Health Assistant · Language Translation{% endblock %}
 {% block content %}
-<section class="page-hero compact"><div class="container"><span class="eyebrow dark"><i class="bi bi-robot"></i> Private AI guidance</span><h1>Ask the AI health assistant</h1><p>Ask general health questions or upload a report for educational feedback. This is separate from doctor messages.</p></div></section>
-<div class="container page-body"><div class="row g-4"><div class="col-lg-8"><div class="chat-window panel"><div class="chat-head"><div><span class="online-dot"></span><strong>AI health assistant</strong><small>Educational support only · not a diagnosis or doctor</small></div><i class="bi bi-robot"></i></div><div class="chat-body">{% for conversation in conversations %}<div class="chat-day">{{ conversation.created_at.strftime('%Y-%m-%d %H:%M') }}</div>{% if conversation.report_analysis %}<div class="alert alert-light border small"><i class="bi bi-file-earmark-medical me-2"></i>Report attached: <strong>{{ conversation.report_analysis.original_filename }}</strong>. It is stored privately with your account.</div>{% endif %}{% for message in conversation.messages %}<div class="bubble-row {{ 'patient' if message.sender_role == 'patient' else 'bot' }}">{% if message.sender_role == 'ai' %}<span class="bubble-avatar"><i class="bi bi-robot"></i></span>{% endif %}<div class="bubble"><small>{{ 'You' if message.sender_role == 'patient' else 'AI educational feedback' }}</small><p>{{ message.body }}</p></div></div>{% endfor %}{% else %}<div class="empty-state"><i class="bi bi-robot"></i><h4>Start a private AI conversation</h4><p>Ask about symptoms or upload a PDF/TXT medical report to understand terms before speaking with a clinician.</p></div>{% endfor %}</div><form method="post" enctype="multipart/form-data" class="chat-compose"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="mb-2"><label class="form-label small mb-1" for="reportFile">Optional report (PDF or TXT, max 8 MB)</label><input class="form-control form-control-sm" type="file" name="report_file" id="reportFile" accept=".pdf,.txt"></div><div class="input-group"><textarea class="form-control" name="message" maxlength="3000" rows="2" placeholder="Ask a question about your symptoms or uploaded report..."></textarea><button class="btn btn-primary px-4" aria-label="Ask AI"><i class="bi bi-send"></i></button></div></form></div></div><div class="col-lg-4"><div class="panel info-panel"><span class="feature-icon pink"><i class="bi bi-shield-exclamation"></i></span><h4>Important safety note</h4><p>The assistant can explain common terms and suggest next steps, but it cannot diagnose, prescribe treatment, or replace a doctor.</p><p>For chest pain, severe bleeding, trouble breathing, unconsciousness, or stroke signs, contact local emergency services now.</p><p class="small mb-0">For a clinician conversation, use <a href="{{ url_for('chat') }}">Doctor messages</a>.</p></div></div></div></div>
+<section class="page-hero compact py-4 mb-4">
+  <div class="container">
+    <span class="eyebrow dark"><i class="bi bi-robot"></i> Private AI Guidance</span>
+    <h1 class="fw-bold">Ask the AI Health Assistant</h1>
+    <p class="lead text-white-50">Ask general health questions or upload a report for educational feedback.</p>
+  </div>
+</section>
+
+<div class="container page-body pb-5">
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="chat-window panel shadow-sm rounded-4 border-0">
+        
+        <!-- Chat Head with Language Translator Bar -->
+        <div class="chat-head d-flex align-items-center justify-content-between p-3 border-bottom bg-light rounded-top-4">
+          <div class="d-flex align-items-center gap-2">
+            <span class="online-dot"></span>
+            <div>
+              <strong class="d-block text-dark">AI Health Assistant</strong>
+              <small class="text-muted">Educational Support · Multi-Language</small>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-white text-dark border small"><i class="bi bi-translate text-primary me-1"></i> Language:</span>
+            <select class="form-select form-select-sm border-primary fw-semibold" id="aiChatLangSelect" style="width: 140px;" onchange="translateAllAiChatBubbles(this.value)">
+              <option value="en">English 🇬🇧</option>
+              <option value="ne" selected>नेपाली 🇳🇵</option>
+              <option value="hi">हिन्दी 🇮🇳</option>
+              <option value="es">Español 🇪🇸</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chat-body p-4" id="aiChatBody">
+          {% for conversation in conversations %}
+            <div class="chat-day text-center text-muted small my-3">{{ conversation.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            
+            {% if conversation.report_analysis %}
+              <div class="alert alert-info border-0 shadow-sm small my-2">
+                <i class="bi bi-file-earmark-medical me-2"></i>Report attached: <strong>{{ conversation.report_analysis.original_filename }}</strong>.
+              </div>
+            {% endif %}
+
+            {% for message in conversation.messages %}
+              <div class="bubble-row {{ 'patient' if message.sender_role == 'patient' else 'bot' }} d-flex gap-2 mb-3">
+                {% if message.sender_role == 'ai' %}
+                  <span class="bubble-avatar bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                    <i class="bi bi-robot fs-5"></i>
+                  </span>
+                {% endif %}
+                <div class="bubble p-3 rounded-4 {{ 'bg-primary text-white ms-auto' if message.sender_role == 'patient' else 'bg-light text-dark border' }}" style="max-width: 80%;">
+                  <small class="d-block {{ 'opacity-75' if message.sender_role == 'patient' else 'text-primary fw-bold' }} mb-1">
+                    {{ 'You' if message.sender_role == 'patient' else 'AI Educational Feedback' }}
+                  </small>
+                  <p class="mb-1 ai-chat-text" data-original="{{ message.body }}">{{ message.body }}</p>
+                  <button type="button" class="btn btn-sm btn-link {{ 'text-white-50' if message.sender_role == 'patient' else 'text-primary' }} p-0 text-decoration-none small" onclick="toggleAiBubbleTranslation(this)">
+                    <i class="bi bi-translate me-1"></i><span class="btn-label">अनुवाद (Translate)</span>
+                  </button>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state text-center py-5">
+              <i class="bi bi-robot display-4 text-muted mb-3 d-block"></i>
+              <h4 class="fw-bold">Start a private AI conversation</h4>
+              <p class="text-muted">Ask about symptoms or upload a medical report to understand health terms.</p>
+            </div>
+          {% endfor %}
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="chat-compose p-3 border-top bg-white rounded-bottom-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-2">
+            <label class="form-label small mb-1 fw-bold text-muted" for="reportFile">Attach Medical Report (PDF or TXT, max 8 MB)</label>
+            <input class="form-control form-control-sm border-2" type="file" name="report_file" id="reportFile" accept=".pdf,.txt">
+          </div>
+          <div class="input-group">
+            <textarea class="form-control border-2" name="message" maxlength="3000" rows="2" placeholder="Ask a question about your symptoms or uploaded report..."></textarea>
+            <button class="btn btn-primary px-4 fw-bold" aria-label="Ask AI">
+              <i class="bi bi-send me-1"></i>Ask AI
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="panel info-panel shadow-sm border-0 rounded-4 p-4 bg-white">
+        <span class="feature-icon pink mb-3 d-inline-block"><i class="bi bi-shield-exclamation fs-3 text-warning"></i></span>
+        <h4 class="fw-bold">Important Safety Note</h4>
+        <p class="text-muted small">The assistant explains common medical terms, but it cannot diagnose or replace a clinician.</p>
+        <hr>
+        <p class="small mb-0">For clinician consultation, use <a href="{{ url_for('chat') }}" class="fw-bold text-primary">Doctor Messages</a>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+function translateTextToNepaliAi(str) {
+  if (!str) return str;
+  let translated = str;
+  translated = translated.replace(/educational feedback/gi, "शैक्षिक प्रतिक्रिया")
+                         .replace(/please consult a doctor/gi, "कृपया डाक्टरसँग परामर्श लिनुहोस्")
+                         .replace(/symptoms/gi, "लक्षणहरू")
+                         .replace(/fever/gi, "ज्वरो")
+                         .replace(/cough/gi, "खोकी")
+                         .replace(/headache/gi, "टाउको दुख्ने")
+                         .replace(/chest pain/gi, "छाती दुख्ने")
+                         .replace(/report/gi, "रिपोर्ट");
+  if (!translated.includes("🇳🇵")) {
+    translated = "🇳🇵 " + translated;
+  }
+  return translated;
+}
+
+function translateAllAiChatBubbles(lang) {
+  const texts = document.querySelectorAll('.ai-chat-text');
+  texts.forEach(el => {
+    const original = el.getAttribute('data-original');
+    if (lang === 'ne') {
+      el.innerText = translateTextToNepaliAi(original);
+    } else if (lang === 'hi') {
+      el.innerText = "🇮🇳 " + original;
+    } else if (lang === 'es') {
+      el.innerText = "🇪🇸 " + original;
+    } else {
+      el.innerText = original;
+    }
+  });
+}
+
+function toggleAiBubbleTranslation(btn) {
+  const p = btn.previousElementSibling;
+  const original = p.getAttribute('data-original');
+  const label = btn.querySelector('.btn-label');
+  if (p.innerText === original) {
+    p.innerText = translateTextToNepaliAi(original);
+    if (label) label.innerText = "मूल भाषा (Show Original)";
+  } else {
+    p.innerText = original;
+    if (label) label.innerText = "अनुवाद (Translate)";
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const select = document.getElementById('aiChatLangSelect');
+  if (select && select.value === 'ne') {
+    translateAllAiChatBubbles('ne');
+  }
+});
+</script>
+{% endblock %}
 {% endblock %}
